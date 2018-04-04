@@ -1,0 +1,18 @@
+# Generated files
+dist
+
+# Visual studio code
+.vscode
+
+# Config - env variables
+.env
+
+# Logs
+npm-debug.log*
+
+# Dependency directories
+node_modules
+
+# MacOS
+.DS_Store
+

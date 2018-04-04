@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "declaration": false,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": ["es2017", "dom"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noLib": false,
+    "noUnusedLocals": false,
+	"outDir": "dist",
+	"pretty": true,
+    "removeComments": true,
+    "rootDir": "src",
+    "sourceMap": true,
+    // "strictNullChecks": true,
+    "suppressImplicitAnyIndexErrors": true,
+	"target": "es2017",
+	"watch": true
+  },
+  // "formatCodeOptions": {
+  //   "convertTabsToSpaces": false,
+  //   "indentSize": 4,
+  //   "insertSpaceAfterCommaDelimiter": true,
+  //   "insertSpaceAfterFunctionKeywordForAnonymousFunctions": false,
+  //   "insertSpaceAfterKeywordsInControlFlowStatements": true,
+  //   "insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis": false,
+  //   "insertSpaceAfterSemicolonInForStatements": true,
+  //   "insertSpaceBeforeAndAfterBinaryOperators": true,
+  //   "newLineCharacter": "\r\n",
+  //   "placeOpenBraceOnNewLineForControlBlocks": false,
+  //   "placeOpenBraceOnNewLineForFunctions": false,
+  //   "tabSize": 4
+  // },
+  "include": [
+    "src/**/*"
+  ],
+  "compileOnSave": true
+}
