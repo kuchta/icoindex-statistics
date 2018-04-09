@@ -12,16 +12,6 @@ logger.init(commander.verbose, commander.debug);
 
 // Parse command line
 
-// function runModule(moduleName: string) {
-// 	return (options: any) => {
-// 		import(`./modules/${moduleName}`).then((module) => {
-// 			module.default(options);
-// 		}).catch((error) => {
-// 			logger.error('Loading module failed', error);
-// 		});
-// 	};
-// }
-
 commander
 	.version(pkg.version)
 	.option('-v, --verbose', 'Increase verbosity', (v, total) => total + 1, 0)
@@ -50,6 +40,10 @@ fs.readdirSync(modulesDir).map((file) => {
 });
 
 commander.parse(process.argv);
+
+if (!process.argv.slice(2).length) {
+	commander.outputHelp();
+}
 
 // Error handling
 

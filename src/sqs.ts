@@ -1,17 +1,11 @@
-import AWS from 'aws-sdk';
-import ccxt from 'ccxt';
+import { SQS } from 'aws-sdk';
 
 import logger from './logger';
 import { MyError } from './errors';
 import { config } from './config';
+import { Ticker } from './interfaces';
 
-export interface Ticker {
-	symbol: string;
-	datetime: string;
-	last?: number;
-}
-
-const sqs = new AWS.SQS({
+const sqs = new SQS({
 	apiVersion: '2018-04-01',
 	accessKeyId: config.AWS_ACCESS_ID,
 	secretAccessKey: config.AWS_SECRET_KEY,
@@ -19,7 +13,7 @@ const sqs = new AWS.SQS({
 	logger: logger
 });
 
-export function sendToQueue(ticker: Ticker) {
+export function sendMessage(ticker: Ticker) {
 	return new Promise((resolve, reject) => {
 		sqs.sendMessage({
 			QueueUrl: config.AWS_SQS_QUEUE_URL,
@@ -35,24 +29,32 @@ export function sendToQueue(ticker: Ticker) {
 	});
 }
 
-export function receiveFromQueue() {
+export function receiveMessage() {
 	return new Promise((resolve, reject) => {
 		sqs.receiveMessage({
 			QueueUrl: config.AWS_SQS_QUEUE_URL,
-		}, (error, data) => {
-			if (data.Messages.length !== 1) {
-				logger.warning('SQS receiveMessage', new MyError('Expected array of length 1', { object: data.Messages }));
-			}
+		}, (error, messages) => {
 			if (error) {
 				reject(error);
+			} else if (messages.Messages.length !== 1) {
+				reject(new MyError('SQS received messages of length != 1', { object: messages.Messages }));
 			} else {
-				resolve(data.Messages[0].Body);
+				sqs.deleteMessage({
+					QueueUrl: config.AWS_SQS_QUEUE_URL,
+					ReceiptHandle: messages.Messages[0].ReceiptHandle
+				}, (error, data) => {
+					if (error) {
+						reject(error);
+					} else {
+						resolve(JSON.parse(messages.Messages[0].Body));
+					}
+				});
 			}
 		});
 	});
 }
 
-export function deleteFromQueue(handle: string) {
+export function deleteMessage(handle: string) {
 	return new Promise((resolve, reject) => {
 		sqs.deleteMessage({
 			QueueUrl: config.AWS_SQS_QUEUE_URL,

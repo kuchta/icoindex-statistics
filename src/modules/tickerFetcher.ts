@@ -3,12 +3,13 @@ import ccxt from 'ccxt';
 
 import { config } from '../config';
 import logger from '../logger';
-import { sendToQueue, Ticker } from '../sqs';
+import { Ticker } from '../interfaces';
+import { sendMessage } from '../sqs';
 
 const coinMarketCap = new ccxt.coinmarketcap();
 
 export const description = 'Fetch tickers from exchange';
-export const options = [{ option: '-p, --print', description: 'Just print the resuls' }];
+export const options = [{ option: '-p, --print', description: 'Print the resuls' }];
 
 export default function main(options: any) {
 	logger.info('Running tickerFetcher');
@@ -20,11 +21,10 @@ export default function main(options: any) {
 		(data: Ticker) => {
 			if (options.print) {
 				logger.info('result', data);
-			} else {
-				sendToQueue(data).catch((error) => {
-					logger.error('Sending to queue failed', error);
-				});
 			}
+			sendMessage(data).catch((error) => {
+				logger.error('Sending to queue failed', error);
+			});
 		},
 		(error) => logger.error('Error', error),
 		() => logger.info('Completed')

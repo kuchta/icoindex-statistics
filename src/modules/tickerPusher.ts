@@ -3,23 +3,25 @@ import ccxt from 'ccxt';
 
 import { config } from '../config';
 import logger from '../logger';
-import { receiveFromQueue, Ticker } from '../sqs';
+import { Ticker } from '../interfaces';
+import { receiveMessage } from '../sqs';
+import { putItem } from '../dynamo';
 
 export const description = 'Push tickers to database';
-export const options = [{ option: '-p, --print', description: 'Just print the resuls' }];
+export const options = [{ option: '-p, --print', description: 'Print the results' }];
 
 export default function main(options: any) {
 	logger.info('Running tickerPusher');
 	Rx.Observable.interval(config.AWS_DYNAMO_INTERVAL)
-	.flatMap((count) => receiveFromQueue())
+	.flatMap((count) => receiveMessage())
 	.subscribe(
-		(data: Ticker) => {
-			logger.info('result', data);
-			// if (options.print) {
-			// 	logger.info('result', data);
-			// } else {
-			// 	logger.error('Not Implemented yet');
-			// }
+		(ticker: Ticker) => {
+			if (options.print) {
+				logger.info('Received from queue', ticker);
+			}
+			putItem(ticker).catch((error) => {
+				logger.error('Sending to database failed', error);
+			});
 		},
 		(error) => logger.error('Error', error),
 		() => logger.info('Completed')

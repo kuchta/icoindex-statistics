@@ -1,5 +1,5 @@
 import logger from '../logger';
-import { purgeQueue, receiveFromQueue } from '../sqs';
+import { purgeQueue } from '../sqs';
 
 export const description = 'Deletes the messages in a queue';
 
