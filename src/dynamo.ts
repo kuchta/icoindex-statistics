@@ -1,22 +1,31 @@
 import { DynamoDB } from 'aws-sdk';
 import uuidv4 from 'uuid/v4';
 
-import logger from './logger';
 import { MyError } from './errors';
-import { config } from './config';
 import { Ticker } from './interfaces';
+import { config } from './config';
+import logger from './logger';
 
-const dynamoDB = new DynamoDB({
-	apiVersion: '2018-04-01',
-	accessKeyId: config.AWS_ACCESS_ID,
-	secretAccessKey: config.AWS_SECRET_KEY,
-	region: config.AWS_REGION,
-	logger: logger
-});
+let client: DynamoDB | null = null;
+
+function getClient(): DynamoDB {
+	if (client) {
+		return client;
+	} else {
+		client = new DynamoDB({
+			apiVersion: '2018-04-01',
+			accessKeyId: config.AWS_ACCESS_ID,
+			secretAccessKey: config.AWS_SECRET_KEY,
+			region: config.AWS_REGION,
+			logger: logger
+		});
+		return client;
+	}
+}
 
 export function putItem(ticker: Ticker) {
 	return new Promise((resolve, reject) => {
-		dynamoDB.putItem({
+		getClient().putItem({
 			TableName: config.AWS_DYNAMO_TABLE,
 			Item: {
 				uuid: {
@@ -36,7 +45,6 @@ export function putItem(ticker: Ticker) {
 			if (error) {
 				reject(error);
 			} else {
-				logger.info('putItem:', data);
 				resolve(data);
 			}
 		});

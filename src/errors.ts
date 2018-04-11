@@ -1,9 +1,9 @@
 export class MyError extends Error {
-	error: Error;
-	object: object;
-	code: number;
+	error?: Error;
+	object?: object;
+	code?: number;
 
-	constructor(readonly message: string, { error = null, object = null }: { error?: Error, object?: Object } = {}) {
+	constructor(readonly message: string, { error, object }: { error?: Error, object?: Object } = {}) {
 		super(message);
 		this.error = error;
 		this.object = object;

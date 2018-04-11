@@ -11,9 +11,6 @@ const config = {
 		info: 2,
 		info1: 3,
 		info2: 4,
-		info3: 5,
-		info4: 6,
-		info5: 7,
 		debug1: 8,
 		debug2: 9
 	},
@@ -23,9 +20,6 @@ const config = {
 		info: 'blue',
 		info1: 'blue',
 		info2: 'blue',
-		info3: 'blue',
-		info4: 'blue',
-		info5: 'blue',
 		debug1: 'green',
 		debug2: 'green'
 	},
@@ -38,13 +32,13 @@ const config = {
 			prettyPrint: true,
 			depth: 5,
 			stderrLevels: ['error', 'warning'],
-			formatter: null
+			// formatter: null
 		// align: true
 		})
 	]
 };
 
-interface MyLogger extends winston.Winston {
+export interface MyLogger extends winston.Winston {
 	init: (verbose: number, debug: number) => void;
 	error: winston.LeveledLogMethod;
 	warning: winston.LeveledLogMethod;
@@ -64,9 +58,14 @@ interface MyLogger extends winston.Winston {
 	for (let level in config.levels) {
 		let match = level.match(/(info|debug)(\d)/);
 		if (match) {
+
+
+
 			if ((match[1] === 'info' && verbose >= parseInt(match[2])) || (match[1] === 'debug' && debug >= parseInt(match[2]))) {
+				// console.log('level: %s, match, verbose: %i, debug: %i', level, verbose, debug);
 				winston[level] = logMessage(verbose, debug, winston, level);
 			} else {
+				// console.log('level: %s, no match, verbose: %i, debug: %i', level, verbose, debug);
 				winston[level] = () => { /* Don't log */ };
 			}
 		} else {
@@ -81,7 +80,7 @@ function logMessage(verbose: number, debug: number, logger: winston.Winston, lev
 		let error;
 		let object;
 
-		// console.log(`message="${message}", obj="${obj}""`);
+		// console.log(`message="${message}", obj="${JSON.stringify(obj)}`);
 
 		if (obj != null) {
 			if (obj instanceof Error) {
@@ -100,7 +99,7 @@ function logMessage(verbose: number, debug: number, logger: winston.Winston, lev
 			}
 		}
 
-		// console.log(`message="${message}", error="${error}", object="${object}""`);
+		// console.log(`message="${message}", error="${error}", object="${JSON.stringify(object)}"`);
 
 		if (error instanceof Error) {
 			stack = error.stack;

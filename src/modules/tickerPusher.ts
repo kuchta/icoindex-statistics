@@ -8,17 +8,15 @@ import { receiveMessage } from '../sqs';
 import { putItem } from '../dynamo';
 
 export const description = 'Push tickers to database';
-export const options = [{ option: '-p, --print', description: 'Print the results' }];
+// export const options = [{ option: '-p, --print', description: 'Print the results' }];
 
-export default function main(options: any) {
+export default function main(/* options: any */) {
 	logger.info('Running tickerPusher');
 	Rx.Observable.interval(config.AWS_DYNAMO_INTERVAL)
 	.flatMap((count) => receiveMessage())
 	.subscribe(
 		(ticker: Ticker) => {
-			if (options.print) {
-				logger.info('Received from queue', ticker);
-			}
+			logger.info1('Received from queue', ticker);
 			putItem(ticker).catch((error) => {
 				logger.error('Sending to database failed', error);
 			});

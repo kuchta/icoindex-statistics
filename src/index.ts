@@ -8,14 +8,16 @@ import logger from './logger';
 
 import pkg from '../package.json';
 
-logger.init(commander.verbose, commander.debug);
-
 // Parse command line
 
 commander
 	.version(pkg.version)
 	.option('-v, --verbose', 'Increase verbosity', (v, total) => total + 1, 0)
 	.option('-d, --debug', 'Increase verbosity of debug messages', (v, total) => total + 1, 0);
+
+commander.parse(process.argv);
+
+logger.init(commander.verbose, commander.debug);
 
 let modulesDir = path.join(__dirname, 'modules');
 
@@ -47,20 +49,17 @@ if (!process.argv.slice(2).length) {
 
 // Error handling
 
-process.on('unhandledRejection', handleUnhandledRejection);
-process.on('rejectionHandled', handleRejectionHandled);
-process.on('uncaughtException', handleUncaughtException);
-process.on('SIGINT', handleInt);
-process.on('exit', handleExit);
-
 const unhandledRejections = new Map();
+
+process.on('unhandledRejection', handleUnhandledRejection);
 
 function handleUnhandledRejection() {
 	return (reason: any, promise: Promise<any>) => {
-		// logger.error(`unhandledRejection`, {error})
 		unhandledRejections.set(promise, reason);
 	};
 }
+
+process.on('rejectionHandled', handleRejectionHandled);
 
 function handleRejectionHandled() {
 	return (promise: Promise<any>) => {
@@ -68,38 +67,37 @@ function handleRejectionHandled() {
 	};
 }
 
+process.on('SIGINT', handleInt);
+let stop = false;
+
 function handleInt() {
 	readline.clearLine(process.stdout, 0);
-	readline.cursorTo(process.stdout, 0, null);
-	// if (stop) {
+	readline.cursorTo(process.stdout, 0);
+	if (stop) {
 		process.exit(0);
-	// } else {
-		// stop = true;
-	// }
+	} else {
+		stop = true;
+	}
 }
+
+process.on('uncaughtException', handleUncaughtException);
 
 function handleUncaughtException() {
 	return (error: Error) => {
-		if (commander.debug >= 1) {
-			logger.error(`uncaughtException`, {error});
-		} else {
-			logger.error(null, {error});
-		}
+		logger.error('uncaughtException', error);
 		process.exit(1);
 	};
 }
 
-function handleExit(code: number) {
+process.on('exit', handleExit);
+
+function handleExit(/* code: number */) {
 	if (unhandledRejections.size > 0) {
 		unhandledRejections.forEach((error) => {
-			if (commander.debug >= 1) {
-				logger.error(`unhandledRejection`, {error});
-			} else {
-				logger.error(null, {error});
-			}
+			logger.error('unhandledRejection', error);
 		});
-		if (code === 0) {
-			process.exit(1);
-		}
+		// if (code === 0) {
+		// 	process.exit(1);
+		// }
 	}
 }

@@ -9,20 +9,18 @@ import { sendMessage } from '../sqs';
 const coinMarketCap = new ccxt.coinmarketcap();
 
 export const description = 'Fetch tickers from exchange';
-export const options = [{ option: '-p, --print', description: 'Print the resuls' }];
+// export const options = [{ option: '-p, --print', description: 'Print the resuls' }];
 
-export default function main(options: any) {
+export default function main(/* options: any */) {
 	logger.info('Running tickerFetcher');
 	Rx.Observable.interval(config.EXCHANGE_INTERVAL)
 	.flatMap((count) => coinMarketCap.fetchTickers())
 	.flatMap((data) => Object.values(data))
 	.map((data: ccxt.Ticker) => ({ symbol: data.symbol, datetime: data.datetime, last: data.last }))
 	.subscribe(
-		(data: Ticker) => {
-			if (options.print) {
-				logger.info('result', data);
-			}
-			sendMessage(data).catch((error) => {
+		(ticker: Ticker) => {
+			logger.info1('Received from exchange', ticker);
+			sendMessage(ticker).catch((error) => {
 				logger.error('Sending to queue failed', error);
 			});
 		},

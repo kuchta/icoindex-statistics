@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "allowJs": true,
-    "declaration": false,
+    "allowJs": false,
+    "declaration": true,
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
     "experimentalDecorators": true,
@@ -11,7 +11,8 @@
     "moduleResolution": "node",
     "noImplicitAny": true,
     "noImplicitReturns": true,
-    "noImplicitThis": true,
+	"noImplicitThis": true,
+	// "noUnusedParameters": true,
     "noLib": false,
     "noUnusedLocals": false,
 	"outDir": "dist",
@@ -19,10 +20,11 @@
     "removeComments": true,
     "rootDir": "src",
     "sourceMap": true,
-    // "strictNullChecks": true,
+    "strictNullChecks": true,
+    "strictPropertyInitialization": true,
     "suppressImplicitAnyIndexErrors": true,
 	"target": "es2017",
-	"watch": true
+	// "watch": true
   },
   // "formatCodeOptions": {
   //   "convertTabsToSpaces": false,
