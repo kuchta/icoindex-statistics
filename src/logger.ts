@@ -1,8 +1,7 @@
-import * as winston from 'winston';
 import moment from 'moment';
+import winston, { LoggerInstance, LeveledLogMethod } from 'winston';
 
 import { MyError } from './errors';
-import { isNull } from 'util';
 
 const config = {
 	levels: {
@@ -38,44 +37,50 @@ const config = {
 	]
 };
 
-export interface MyLogger extends winston.Winston {
+// type Levels =
+// 	'error' |
+// 	'warning' |
+// 	'info' |
+// 	'info1' |
+// 	'info2' |
+// 	'debug1' |
+// 	'debug2';
+
+export interface MyLogger extends LoggerInstance {
 	init: (verbose: number, debug: number) => void;
-	error: winston.LeveledLogMethod;
-	warning: winston.LeveledLogMethod;
-	info: winston.LeveledLogMethod;
-	info1: winston.LeveledLogMethod;
-	info2: winston.LeveledLogMethod;
-	info3: winston.LeveledLogMethod;
-	info4: winston.LeveledLogMethod;
-	info5: winston.LeveledLogMethod;
-	debug1: winston.LeveledLogMethod;
-	debug2: winston.LeveledLogMethod;
+	// [index: string]: LeveledLogMethod;
+	error: LeveledLogMethod;
+	warning: LeveledLogMethod;
+	info: LeveledLogMethod;
+	info1: LeveledLogMethod;
+	info2: LeveledLogMethod;
+	debug1: LeveledLogMethod;
+	debug2: LeveledLogMethod;
 }
 
-(<MyLogger>winston).init = (verbose: number, debug: number) => {
-	winston.configure(config);
+const logger = winston as MyLogger;
+
+logger.init = (verbose: number, debug: number) => {
+	logger.configure(config);
 
 	for (let level in config.levels) {
 		let match = level.match(/(info|debug)(\d)/);
 		if (match) {
-
-
-
 			if ((match[1] === 'info' && verbose >= parseInt(match[2])) || (match[1] === 'debug' && debug >= parseInt(match[2]))) {
 				// console.log('level: %s, match, verbose: %i, debug: %i', level, verbose, debug);
-				winston[level] = logMessage(verbose, debug, winston, level);
+				logger[level] = logMessage(verbose, debug, level);
 			} else {
 				// console.log('level: %s, no match, verbose: %i, debug: %i', level, verbose, debug);
-				winston[level] = () => { /* Don't log */ };
+				logger[level] = () => { /* Don't log */ };
 			}
 		} else {
-			winston[level] = logMessage(verbose, debug, winston, level);
+			logger[level] = logMessage(verbose, debug, level);
 		}
 	}
 };
 
-function logMessage(verbose: number, debug: number, logger: winston.Winston, level: string) {
-	return (message: string, obj?: Object) => {
+function logMessage(verbose: number, debug: number, level: string) {
+	return (message: string, obj?: any) => {
 		let stack;
 		let error;
 		let object;
@@ -88,10 +93,10 @@ function logMessage(verbose: number, debug: number, logger: winston.Winston, lev
 			} else {
 				if (obj.hasOwnProperty('error') || obj.hasOwnProperty('object')) {
 					if (obj.hasOwnProperty('error')) {
-						error = obj['error'];
+						error = obj.error;
 					}
 					if (obj.hasOwnProperty('object')) {
-						object = obj['object'];
+						object = obj.object;
 					}
 				} else {
 					object = obj;
@@ -145,4 +150,4 @@ function removeFirstLine(string: string) {
 	return lines.join('\n');
 }
 
-export default <MyLogger>winston;
+export default logger;

@@ -1,5 +1,5 @@
 export class MyError extends Error {
-	error?: Error;
+	error?: MyError;
 	object?: object;
 	code?: number;
 
@@ -8,7 +8,7 @@ export class MyError extends Error {
 		this.error = error;
 		this.object = object;
 		if (this.error && this.error.hasOwnProperty('code')) {
-			this.code = this.error['code'];
+			this.code = this.error.code;
 		}
 	}
 

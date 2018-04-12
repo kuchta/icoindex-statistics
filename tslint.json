@@ -11,11 +11,7 @@
 		"max-line-length": [false, 140],
 		"member-access": [true, "no-public"],
 		"member-ordering": [true, {
-			"order": [
-				"static-before-instance",
-				"variables-before-functions",
-				"public-before-private"
-			]
+			"order": "statics-first"
 		}],
 		"no-arg": true,
 		"no-bitwise": true,

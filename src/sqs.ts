@@ -1,9 +1,9 @@
 import { SQS } from 'aws-sdk';
 
+import logger from './logger';
+import { config } from './config';
 import { MyError } from './errors';
 import { Ticker } from './interfaces';
-import { config } from './config';
-import logger from './logger';
 
 let client: SQS | null = null;
 
@@ -11,19 +11,20 @@ function getClient(): SQS {
 	if (client) {
 		return client;
 	} else {
+		logger.debug1(`Creating SQS client...`);
 		client = new SQS({
 			apiVersion: '2018-04-01',
 			accessKeyId: config.AWS_ACCESS_ID,
 			secretAccessKey: config.AWS_SECRET_KEY,
 			region: config.AWS_REGION,
-			logger: logger
+			logger: logger,
 		});
 		return client;
 	}
 }
 
-export function sendMessage(ticker: Ticker) {
-	return new Promise((resolve, reject) => {
+export function sendTicker(ticker: Ticker) {
+	return new Promise<SQS.SendMessageResult>((resolve, reject) => {
 		getClient().sendMessage({
 			QueueUrl: config.AWS_SQS_QUEUE_URL,
 			DelaySeconds: 0,
@@ -38,8 +39,8 @@ export function sendMessage(ticker: Ticker) {
 	});
 }
 
-export function receiveMessage() {
-	return new Promise((resolve, reject) => {
+export function receiveTicker() {
+	return new Promise<Ticker>((resolve, reject) => {
 		getClient().receiveMessage({
 			QueueUrl: config.AWS_SQS_QUEUE_URL,
 		}, (error, data) => {
@@ -108,23 +109,22 @@ export function purgeQueue() {
 						}, (error) => {
 							if (error) {
 								reject(new MyError('SQS purgeQueue => deleteMessage failed', { error }));
-							} else {
-								purgeQueue();
 							}
 						});
 					}
 				});
+				purgeQueue();
 			}
 		});
-
-		// sqs.purgeQueue({
-		// 	QueueUrl: config.AWS_SQS_QUEUE_URL,
-		// }, (error, data) => {
-		// 	if (error) {
-		// 		reject(error);
-		// 	} else {
-		// 		resolve();
-		// 	}
-		// });
 	});
+
+	// sqs.purgeQueue({
+	// 	QueueUrl: config.AWS_SQS_QUEUE_URL,
+	// }, (error, data) => {
+	// 	if (error) {
+	// 		reject(error);
+	// 	} else {
+	// 		resolve();
+	// 	}
+	// });
 }

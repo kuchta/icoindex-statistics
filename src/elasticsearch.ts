@@ -1,9 +1,10 @@
 import { Client } from 'elasticsearch';
+import httpAWSES from 'http-aws-es';
 
+import logger, { MyLogger } from './logger';
+import { config } from './config';
 import { MyError } from './errors';
 import { Ticker } from './interfaces';
-import { config } from './config';
-import logger, { MyLogger } from './logger';
 
 function LogToMyLogger(this: MyLogger) {
 	this.error = logger.error.bind(logger);
@@ -19,11 +20,22 @@ function getClient(): Client {
 	if (client) {
 		return client;
 	} else {
+		logger.debug1(`Creating ElasticSearch client...`);
 		client = new Client({
-			host: `${config.AWS_ELASTIC_URL}:9200`,
+			host: {
+			  protocol: 'https',
+			  host: config.AWS_ELASTIC_HOST,
+			  port: 443,
+			},
+			connectionClass: httpAWSES,
 			sniffOnStart: true,
-			// log: LogToMyLogger
-		});
+			amazonES: {
+			  region: config.AWS_REGION,
+			  accessKey: config.AWS_ACCESS_ID,
+			  secretKey: config.AWS_SECRET_KEY,
+			},
+			log: LogToMyLogger
+		  });
 		return client;
 	}
 }
