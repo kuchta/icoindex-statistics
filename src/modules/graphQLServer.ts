@@ -1,6 +1,6 @@
 
 import logger from '../logger';
-import { Options, Ticker } from '../interfaces';
+import { Options, /* Ticker */ } from '../interfaces';
 import { ping } from '../elasticsearch';
 
 export const description = 'GraphQL Server';
@@ -8,6 +8,7 @@ export const options: Options = [{ option: '-p, --ping', description: 'ping Elas
 
 export default function main(options: any) {
 	if (options.ping) {
+		logger.info('Pinging ElasticSearch server...');
 		ping().then(() => {
 			logger.info('ElasticSearch is alive');
 		}).catch((error) => {

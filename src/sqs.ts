@@ -11,7 +11,7 @@ function getClient(): SQS {
 	if (client) {
 		return client;
 	} else {
-		logger.debug1(`Creating SQS client...`);
+		logger.debug(`Creating SQS client...`);
 		client = new SQS({
 			apiVersion: '2018-04-01',
 			accessKeyId: config.AWS_ACCESS_ID,
@@ -89,6 +89,7 @@ export function deleteMessage(handle: string) {
 }
 
 export function purgeQueue() {
+	// @ts-ignore: 'resolve' is declared but its value is never read.
 	return new Promise((resolve, reject) => {
 		getClient().receiveMessage({
 			QueueUrl: config.AWS_SQS_QUEUE_URL,

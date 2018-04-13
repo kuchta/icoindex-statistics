@@ -3,7 +3,7 @@ import uuidv4 from 'uuid/v4';
 
 import logger from './logger';
 import { config } from './config';
-import { MyError } from './errors';
+// import { MyError } from './errors';
 import { Ticker } from './interfaces';
 
 let client: DynamoDB | null = null;
@@ -12,7 +12,7 @@ function getClient(): DynamoDB {
 	if (client) {
 		return client;
 	} else {
-		logger.debug1(`Creating DynamoDB client...`);
+		logger.debug(`Creating DynamoDB client...`);
 		client = new DynamoDB({
 			apiVersion: '2018-04-01',
 			accessKeyId: config.AWS_ACCESS_ID,

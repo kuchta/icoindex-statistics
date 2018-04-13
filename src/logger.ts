@@ -1,7 +1,19 @@
 import moment from 'moment';
 import winston, { LoggerInstance, LeveledLogMethod } from 'winston';
+export { LeveledLogMethod } from 'winston';
 
 import { MyError } from './errors';
+
+export interface MyLogger extends LoggerInstance {
+	init: (verbose: number, debug: boolean) => void;
+	// [index: string]: LeveledLogMethod;
+	error: LeveledLogMethod;
+	warning: LeveledLogMethod;
+	info: LeveledLogMethod;
+	info1: LeveledLogMethod;
+	info2: LeveledLogMethod;
+	debug: LeveledLogMethod;
+}
 
 const config = {
 	levels: {
@@ -10,8 +22,7 @@ const config = {
 		info: 2,
 		info1: 3,
 		info2: 4,
-		debug1: 8,
-		debug2: 9
+		debug: 5,
 	},
 	colors: {
 		error: 'red',
@@ -19,13 +30,12 @@ const config = {
 		info: 'blue',
 		info1: 'blue',
 		info2: 'blue',
-		debug1: 'green',
-		debug2: 'green'
+		debug: 'green',
 	},
 	// padLevels: true,
 	transports: [
 		new winston.transports.Console({
-			level: 'debug2',
+			level: 'debug',
 			timestamp: () => moment().format('HH:mm:ss'),
 			colorize: true,
 			prettyPrint: true,
@@ -43,43 +53,34 @@ const config = {
 // 	'info' |
 // 	'info1' |
 // 	'info2' |
-// 	'debug1' |
-// 	'debug2';
-
-export interface MyLogger extends LoggerInstance {
-	init: (verbose: number, debug: number) => void;
-	// [index: string]: LeveledLogMethod;
-	error: LeveledLogMethod;
-	warning: LeveledLogMethod;
-	info: LeveledLogMethod;
-	info1: LeveledLogMethod;
-	info2: LeveledLogMethod;
-	debug1: LeveledLogMethod;
-	debug2: LeveledLogMethod;
-}
+// 	'debug'
 
 const logger = winston as MyLogger;
 
-logger.init = (verbose: number, debug: number) => {
+for (let level in config.levels) {
+	logger[level] = logMessage(level, false);
+}
+
+logger.init = (verbose: number, debug: boolean) => {
 	logger.configure(config);
 
 	for (let level in config.levels) {
-		let match = level.match(/(info|debug)(\d)/);
-		if (match) {
-			if ((match[1] === 'info' && verbose >= parseInt(match[2])) || (match[1] === 'debug' && debug >= parseInt(match[2]))) {
-				// console.log('level: %s, match, verbose: %i, debug: %i', level, verbose, debug);
-				logger[level] = logMessage(verbose, debug, level);
-			} else {
-				// console.log('level: %s, no match, verbose: %i, debug: %i', level, verbose, debug);
-				logger[level] = () => { /* Don't log */ };
-			}
+		let match = level.match(/(info)(\d)/);
+		if (match && match[1] === 'info' && verbose < parseInt(match[2])) {
+			// console.log('level: %s, no match, verbose: %i, debug: %i', level, verbose, debug);
+			// @ts-ignore: message, meta is declared but its value is never read
+			logger[level] = function (message: string, ...meta: any[]) { return this; };
+		} else if (level === 'debug' && !debug) {
+			// console.log('level: %s, no match, verbose: %i, debug: %i', level, verbose, debug);
+			// @ts-ignore: message, meta is declared but its value is never read
+			logger[level] = function (message: string, ...meta: any[]) { return this; };
 		} else {
-			logger[level] = logMessage(verbose, debug, level);
+			logger[level] = logMessage(level, debug);
 		}
 	}
 };
 
-function logMessage(verbose: number, debug: number, level: string) {
+function logMessage(level: string, debug: boolean) {
 	return (message: string, obj?: any) => {
 		let stack;
 		let error;
@@ -129,7 +130,7 @@ function logMessage(verbose: number, debug: number, level: string) {
 				}
 			}
 
-			if (debug >= 2 && stack) {
+			if (debug && stack) {
 				message = `${message}\n${removeFirstLine(stack)}`;
 			}
 		}

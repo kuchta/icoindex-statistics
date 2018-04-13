@@ -1,5 +1,4 @@
 import Rx from 'rxjs';
-import ccxt from 'ccxt';
 
 import logger from '../logger';
 import { config } from '../config';
@@ -13,7 +12,7 @@ export const options: Options = [{ option: '-p, --print', description: 'Dont\'t 
 export default function main(options: any) {
 	// options.forEach((option: any) => logger.info(option.constructor.name));
 	Rx.Observable.interval(config.DYNAMO_INTERVAL)
-	.flatMap((count) => receiveTicker())
+	.flatMap(() => receiveTicker())
 	.subscribe(
 		(ticker) => {
 			if (options.print) {

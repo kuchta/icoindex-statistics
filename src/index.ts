@@ -41,7 +41,7 @@ process.on('exit', (code: number) => {
 	}
 	if (unhandledRejections.size > 0) {
 		unhandledRejections.forEach((error) => {
-			logger.error('unhandledRejection', error);
+			logger.warning('unhandledRejection', error);
 		});
 		// if (code === 0) {
 		// 	process.exit(1);
@@ -58,8 +58,9 @@ commander
 	// 	logger.init(commander.verbose, commander.debug);
 	// 	commander.help();
 	// })
+	// @ts-ignore: 'v' is declared but its value is never read.
 	.option('-v, --verbose', 'increase verbosity', (v, total) => total + 1, 0)
-	.option('-d, --debug', 'increase verbosity of debug messages', (v, total) => total + 1, 0)
+	.option('-d, --debug', 'enable debug messages')
 	.on('--help', () => {
 		console.log('');
 		console.log('  Info:');
