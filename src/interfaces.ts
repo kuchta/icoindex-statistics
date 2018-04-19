@@ -25,3 +25,13 @@ export interface Ticker {
 	timestamp: number;
 	vwap?: number;
 }
+
+export interface TokenPairRateOnDateTimeInput {
+	input: TokenPairRateOnDateTime[];
+}
+
+export interface TokenPairRateOnDateTime {
+	pair: string;
+	datetime: string;
+	rate: number;
+}

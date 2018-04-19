@@ -1,0 +1,17 @@
+schema {
+	query: Query
+}
+type Query {
+	getTokenPairRate(input: [TokenPairRateOnDateTimeInput]): [TokenPairRateOnDateTime]
+}
+scalar Date
+input TokenPairRateOnDateTimeInput {
+	pair: String
+	datetime: Date
+	rate: Float
+}
+type TokenPairRateOnDateTime {
+	pair: String
+	datetime: Date
+	rate: Float
+}

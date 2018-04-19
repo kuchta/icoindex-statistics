@@ -1,5 +1,5 @@
 import moment from 'moment';
-import winston, { LoggerInstance, LeveledLogMethod } from 'winston';
+import winston, { LoggerInstance, LeveledLogMethod, TransportInstance } from 'winston';
 export { LeveledLogMethod } from 'winston';
 
 import { MyError } from './errors';

@@ -3,9 +3,15 @@ import fs from 'fs';
 import * as readline from 'readline';
 
 import commander from 'commander';
+// import { Pargv } from 'pargv';
 
 import logger from './logger';
 import pkg from '../package.json';
+
+// Allow to import schema as text
+require.extensions['.gql'] = (module, filename) => {
+	module.exports = fs.readFileSync(filename, 'utf8');
+};
 
 // Error handling
 
@@ -19,14 +25,13 @@ process.on('rejectionHandled', (promise: Promise<any>) => {
 	unhandledRejections.delete(promise);
 });
 
-let stop = false;
+let tearDown = false;
 process.on('SIGINT', (/* signal: Signals */) => {
 	readline.clearLine(process.stdout, 0);
 	readline.cursorTo(process.stdout, 0);
-	if (stop) {
-		process.exit(0);
-	} else {
-		stop = true;
+	if (!tearDown) {
+		tearDown = true;
+		setImmediate(() => process.exit(0));
 	}
 });
 
@@ -54,19 +59,15 @@ process.on('exit', (code: number) => {
 commander
 	.version(pkg.version)
 	.usage('[options] <command> [options]')
-	// .option('-h, --help', 'output usage information', () => {
-	// 	logger.init(commander.verbose, commander.debug);
-	// 	commander.help();
-	// })
 	// @ts-ignore: 'v' is declared but its value is never read.
 	.option('-v, --verbose', 'increase verbosity', (v, total) => total + 1, 0)
-	.option('-d, --debug', 'enable debug messages')
-	.on('--help', () => {
-		console.log('');
-		console.log('  Info:');
-		console.log('');
-		console.log('    If you want to terminate the program, hit Ctrl+C twice');
-	  });
+	.option('-d, --debug', 'enable debug messages');
+	// .on('--help', () => {
+	// 	console.log('');
+	// 	console.log('  Info:');
+	// 	console.log('');
+	// 	console.log('    If you want to terminate the program, hit Ctrl+C twice');
+	//   });
 	// .addImplicitHelpCommand();
 
 // Find all program submodules and load them
@@ -78,7 +79,7 @@ fs.readdirSync(modulesDir).map((file) => {
 		let moduleName = match[1];
 		const module = require(path.join(modulesDir, moduleName));
 			if (module.default) {
-				let command = commander.command(moduleName);
+				let command = commander.command(module.args ? `${moduleName} ${module.args.join(' ')}` : moduleName);
 				if (module.description) {
 					command.description(module.description);
 				}
@@ -87,10 +88,10 @@ fs.readdirSync(modulesDir).map((file) => {
 						command.option(option.option, option.description);
 					});
 				}
-				command.action((options) => {
+				command.action((...options) => {
 					logger.init(commander.verbose, commander.debug);
 					logger.info(`Starting ${moduleName}...`);
-					module.default(options);
+					module.default(...options);
 				});
 			}
 	}

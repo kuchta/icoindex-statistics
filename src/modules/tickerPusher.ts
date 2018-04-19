@@ -2,7 +2,7 @@ import Rx from 'rxjs';
 
 import logger from '../logger';
 import { config } from '../config';
-import { Options, Ticker } from '../interfaces';
+import { Options, /* Ticker */ } from '../interfaces';
 import { receiveTicker } from '../sqs';
 import { putItem } from '../dynamo';
 
@@ -18,9 +18,9 @@ export default function main(options: any) {
 			if (options.print) {
 				logger.info1('Received from queue', ticker);
 			} else {
-				putItem(ticker).catch((error) => {
-					logger.error('Sending to database failed', error);
-				});
+				putItem(ticker)
+				.then(() => logger.info1('Succesfully sent to database', ticker))
+				.catch((error) => logger.error('Sending to database failed', error));
 			}
 		},
 		(error) => logger.error('Error', error),

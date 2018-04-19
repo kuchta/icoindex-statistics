@@ -8,6 +8,8 @@ export interface Config {
 	readonly AWS_SQS_QUEUE_URL: string;
 	readonly AWS_DYNAMO_TABLE: string;
 	readonly AWS_ELASTIC_HOST: string;
+	readonly AWS_ELASTIC_INDEX: string;
+	readonly AWS_ELASTIC_TYPE: string;
 	readonly DYNAMO_INTERVAL: number;
 	readonly EXCHANGE_INTERVAL: number;
 }
@@ -19,6 +21,8 @@ export const config: Config = {
 	AWS_SQS_QUEUE_URL: `https://sqs.${getEnvVar('AWS_REGION')}.amazonaws.com/234333348657/icoindex-staging-queue-coin-trading`,
 	AWS_DYNAMO_TABLE: 'icoindexstaging.cointradinghistory',
 	AWS_ELASTIC_HOST: `search-icoindex-staging-gywi2nq266suyvyjfux67mhf44.${getEnvVar('AWS_REGION')}.es.amazonaws.com`,
+	AWS_ELASTIC_INDEX: 'icoindexstaging.cointradinghistory',
+	AWS_ELASTIC_TYPE: 'icoindexstaging.cointradinghistory_type',
 	DYNAMO_INTERVAL: 100,
 	EXCHANGE_INTERVAL: 5000
 };
@@ -36,6 +40,10 @@ for (let [key, value] of Object.entries(config)) {
 	Object.defineProperty(config, key, {
 		get: () => {
 			logger.debug(`Getting config: ${key}: "${value}"`);
+			Object.defineProperty(config, key, {
+				value: value,
+				writable: false
+			});
 			return value;
 		}
 	});

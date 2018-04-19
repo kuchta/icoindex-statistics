@@ -32,7 +32,7 @@ export function putItem(ticker: Ticker) {
 				uuid: {
 					S: uuidv4() as string
 				},
-				symbol: {
+				pair: {
 					S: ticker.symbol
 				},
 				datetime: {

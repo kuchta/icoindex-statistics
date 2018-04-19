@@ -1,13 +1,12 @@
-// import { config as AWSConfig, Credentials } from 'aws-sdk';
+import { Client, ConfigOptions, SearchResponse, DeleteDocumentResponse } from 'elasticsearch';
 import AWS from 'aws-sdk';
-import { Client, ConfigOptions } from 'elasticsearch';
+import { integer } from 'aws-sdk/clients/cloudfront';
 import httpAWSES from 'http-aws-es';
 
 import logger, { MyLogger, LeveledLogMethod } from './logger';
 import { config } from './config';
 import { MyError } from './errors';
-import { Ticker } from './interfaces';
-import { integer } from 'aws-sdk/clients/cloudfront';
+import { Ticker, TokenPairRateOnDateTime } from './interfaces';
 
 class LogToMyLogger {
 	error: LeveledLogMethod;
@@ -45,10 +44,11 @@ function getClient(): Client {
 			region: config.AWS_REGION
 		});
 		client = new Client({
+			apiVersion: '6.0',
 			host: {
-			  protocol: 'https',
-			  host: config.AWS_ELASTIC_HOST,
-			  port: 443,
+				protocol: 'https',
+				host: config.AWS_ELASTIC_HOST,
+				port: 443,
 			},
 			connectionClass: httpAWSES,
 			sniffOnStart: true,
@@ -69,3 +69,64 @@ export function ping() {
 		maxRetries: 3
 	});
 }
+
+export function getTicker(pair: string, datetime: string) {
+	return new Promise<TokenPairRateOnDateTime>((resolve, reject) => {
+		getClient().search<TokenPairRateOnDateTime>({
+			index: config.AWS_ELASTIC_INDEX,
+			type: config.AWS_ELASTIC_TYPE,
+			body: {
+				query: {
+					function_score: {
+						functions: [
+							{
+								linear: {
+									datetime: {
+										origin: datetime,
+										scale: '20m'
+									}
+								}
+							}
+						],
+						score_mode: 'multiply',
+						boost_mode: 'multiply',
+						query: {
+							match: {
+								pair: pair
+							},
+							// match_all: {}
+						}
+					}
+				}
+			}
+		}, function (error, response) {
+			if (error) {
+				reject(new MyError('ES search failed', { error }));
+			} else {
+				logger.info1('response', response);
+				resolve(response.hits.hits[0]._source);
+			}
+		});
+	});
+}
+
+export function deleteTicker(id: string) {
+	return new Promise<DeleteDocumentResponse>((resolve, reject) => {
+		getClient().delete({
+			index: config.AWS_ELASTIC_INDEX,
+			type: config.AWS_ELASTIC_TYPE,
+			id: `uuid=${id}`
+		}, function (error, response) {
+			if (error) {
+				reject(new MyError('ES delete failed', { error }));
+			} else {
+				resolve(response);
+			}
+		});
+	});
+}
+
+// logger.info('ahojda');
+// getClient().indices.getMapping({})
+// .then((value) => logger.info('mapping', value))
+// .catch((error) => logger.error('mapping', error));

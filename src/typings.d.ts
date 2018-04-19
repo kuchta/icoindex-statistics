@@ -1,4 +1,9 @@
 declare module "*.json" {
-	const value: any;
-	export default value;
+	const content: any;
+	export default content;
+}
+
+declare module "*.gql" {
+	const content: string;
+	export default content;
 }
