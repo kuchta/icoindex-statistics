@@ -6,12 +6,12 @@ type Query {
 }
 scalar Date
 input TokenPairRateOnDateTimeInput {
-	pair: String
-	datetime: Date
+	pair: String!
+	datetime: Date!
 	rate: Float
 }
 type TokenPairRateOnDateTime {
-	pair: String
-	datetime: Date
+	pair: String!
+	datetime: Date!
 	rate: Float
 }

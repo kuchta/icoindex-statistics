@@ -1,7 +1,7 @@
 import { SQS } from 'aws-sdk';
 
 import logger from './logger';
-import { config } from './config';
+import config from './config';
 import { MyError } from './errors';
 import { Ticker } from './interfaces';
 

@@ -1,7 +1,7 @@
 import logger from '../logger';
 import { purgeQueue } from '../sqs';
 
-export const description = 'deletes the messages in a queue';
+export const description = 'Deletes the messages in a queue';
 
 export default function main() {
 	purgeQueue().then(() => {

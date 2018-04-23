@@ -1,50 +1,64 @@
 import logger from './logger';
 import { MyError } from './errors';
+import config from '../config.json';
 
 export interface Config {
-	readonly AWS_REGION: string;
-	readonly AWS_ACCESS_ID: string;
-	readonly AWS_SECRET_KEY: string;
-	readonly AWS_SQS_QUEUE_URL: string;
-	readonly AWS_DYNAMO_TABLE: string;
-	readonly AWS_ELASTIC_HOST: string;
-	readonly AWS_ELASTIC_INDEX: string;
-	readonly AWS_ELASTIC_TYPE: string;
-	readonly DYNAMO_INTERVAL: number;
-	readonly EXCHANGE_INTERVAL: number;
+	AWS_REGION: string;
+	AWS_ACCESS_ID: string;
+	AWS_SECRET_KEY: string;
+	AWS_SQS_QUEUE_URL: string;
+	AWS_DYNAMO_TABLE: string;
+	AWS_ELASTIC_HOST: string;
+	AWS_ELASTIC_INDEX: string;
+	AWS_ELASTIC_TYPE: string;
+	GRAPHQL_HOST: string;
+	GRAPHQL_PORT: number;
+	DYNAMO_INTERVAL: number;
+	EXCHANGE_INTERVAL: number;
+	MAX_DATETIME_PROXIMITY: string;
 }
 
-export const config: Config = {
-	AWS_REGION: getEnvVar('AWS_REGION'),
-	AWS_ACCESS_ID: getEnvVar('AWS_ACCESS_ID'),
-	AWS_SECRET_KEY: getEnvVar('AWS_SECRET_KEY'),
-	AWS_SQS_QUEUE_URL: `https://sqs.${getEnvVar('AWS_REGION')}.amazonaws.com/234333348657/icoindex-staging-queue-coin-trading`,
-	AWS_DYNAMO_TABLE: 'icoindexstaging.cointradinghistory',
-	AWS_ELASTIC_HOST: `search-icoindex-staging-gywi2nq266suyvyjfux67mhf44.${getEnvVar('AWS_REGION')}.es.amazonaws.com`,
-	AWS_ELASTIC_INDEX: 'icoindexstaging.cointradinghistory',
-	AWS_ELASTIC_TYPE: 'icoindexstaging.cointradinghistory_type',
-	DYNAMO_INTERVAL: 100,
-	EXCHANGE_INTERVAL: 5000
-};
+// const config: Config = configJson;
 
-function getEnvVar(variable: string): string {
-	let env = process.env[variable];
-	if (env) {
-		return env;
-	} else {
-		throw new MyError(`Environment variable ${variable} not set`);
-	}
-}
-
-for (let [key, value] of Object.entries(config)) {
+Object.entries(config).forEach(([key, value]) => {
 	Object.defineProperty(config, key, {
-		get: () => {
-			logger.debug(`Getting config: ${key}: "${value}"`);
+		get: getter(key, value),
+		set: (val) => {
+			let intVal = parseInt(val);
+			if (intVal) {
+				value = intVal;
+			} else {
+				value = val;
+			}
+			logger.info(`Setting config: ${key}: ${value}`);
 			Object.defineProperty(config, key, {
-				value: value,
-				writable: false
+				get: getter(key, value)
 			});
-			return value;
 		}
 	});
+});
+
+Object.keys(config).forEach((key) => {
+	let env = process.env[`IS_${key}`];
+	if (env) {
+		config[key] = env;
+	}
+});
+
+function getter(key: string, value: any) {
+	let rep = 0;
+	return () => {
+		logger.debug(`Getting config: ${key}: ${value}`);
+
+		if (rep > 2) {
+			Object.defineProperty(config, key, {
+				value: value,
+				writable: true
+			});
+		}
+		rep++;
+		return value;
+	};
 }
+
+export default config as Config;

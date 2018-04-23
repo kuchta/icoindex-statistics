@@ -1,10 +1,11 @@
+import moment from 'moment';
 import { Client, ConfigOptions, SearchResponse, DeleteDocumentResponse } from 'elasticsearch';
 import AWS from 'aws-sdk';
 import { integer } from 'aws-sdk/clients/cloudfront';
 import httpAWSES from 'http-aws-es';
 
 import logger, { MyLogger, LeveledLogMethod } from './logger';
-import { config } from './config';
+import config from './config';
 import { MyError } from './errors';
 import { Ticker, TokenPairRateOnDateTime } from './interfaces';
 
@@ -21,8 +22,9 @@ class LogToMyLogger {
 		this.info = logger.info.bind(logger);
 		this.debug = logger.debug.bind(logger);
 		this.close = () => { /* empty */ };
+		// @ts-ignore: argument is declared but its value is never read.
 		this.trace = (method, requestUrl, body, responseBody, responseStatus) => {
-			logger.debug('ElasticSearch TRACE', { method, requestUrl, body, responseBody, responseStatus });
+			// logger.debug('ElasticSearch TRACE', { method, requestUrl, body, responseBody, responseStatus });
 		};
 	}
 }
@@ -72,61 +74,68 @@ export function ping() {
 
 export function getTicker(pair: string, datetime: string) {
 	return new Promise<TokenPairRateOnDateTime>((resolve, reject) => {
+		let dt;
+		if (datetime.toLowerCase() === 'now') {
+			dt = moment();
+		} else {
+			dt = moment(datetime);
+		}
+		if (!dt.isValid()) {
+			reject(new MyError('Invalid date supplied'));
+		}
+		let dateProxArray = config.MAX_DATETIME_PROXIMITY.split(' ');
+		let startDateRange = dt.clone().subtract(...dateProxArray);
+		let endDateRange = dt.clone().add(...dateProxArray);
 		getClient().search<TokenPairRateOnDateTime>({
 			index: config.AWS_ELASTIC_INDEX,
 			type: config.AWS_ELASTIC_TYPE,
 			body: {
 				query: {
 					function_score: {
-						functions: [
-							{
-								linear: {
-									datetime: {
-										origin: datetime,
-										scale: '20m'
-									}
-								}
+						// query: {
+						// 	bool: {
+						// 		filter: [
+						// 			{ term: { pair }},
+						// 			{ range: { datetime: { gte: startDateRange.toISOString(), lte: endDateRange.toISOString() }}}
+						// 		]
+						// 	}
+						// },
+						linear: {
+							datetime: {
+								origin: dt.toISOString(),
+								scale: '1m'
 							}
-						],
-						score_mode: 'multiply',
-						boost_mode: 'multiply',
-						query: {
-							match: {
-								pair: pair
-							},
-							// match_all: {}
 						}
 					}
 				}
 			}
-		}, function (error, response) {
+		}, (error, response) => {
 			if (error) {
 				reject(new MyError('ES search failed', { error }));
 			} else {
 				logger.info1('response', response);
-				resolve(response.hits.hits[0]._source);
+				if (response.hits.hits.length > 0) {
+					resolve(response.hits.hits[0]._source);
+				} else {
+					reject('No results found');
+				}
 			}
 		});
 	});
 }
 
-export function deleteTicker(id: string) {
-	return new Promise<DeleteDocumentResponse>((resolve, reject) => {
-		getClient().delete({
-			index: config.AWS_ELASTIC_INDEX,
-			type: config.AWS_ELASTIC_TYPE,
-			id: `uuid=${id}`
-		}, function (error, response) {
-			if (error) {
-				reject(new MyError('ES delete failed', { error }));
-			} else {
-				resolve(response);
-			}
-		});
-	});
-}
-
-// logger.info('ahojda');
-// getClient().indices.getMapping({})
-// .then((value) => logger.info('mapping', value))
-// .catch((error) => logger.error('mapping', error));
+// export function deleteTicker(id: string) {
+// 	return new Promise<DeleteDocumentResponse>((resolve, reject) => {
+// 		getClient().delete({
+// 			index: config.AWS_ELASTIC_INDEX,
+// 			type: config.AWS_ELASTIC_TYPE,
+// 			id: `uuid=${id}`
+// 		}, (error, response) => {
+// 			if (error) {
+// 				reject(new MyError('ES delete failed', { error }));
+// 			} else {
+// 				resolve(response);
+// 			}
+// 		});
+// 	});
+// }

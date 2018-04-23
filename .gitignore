@@ -1,6 +1,7 @@
 # Generated files
 dist
 bin
+src/tests
 
 # Visual studio code
 .vscode

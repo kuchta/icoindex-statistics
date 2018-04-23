@@ -3,38 +3,38 @@ import express from 'express';
 import graphqlHTTP from 'express-graphql';
 
 import logger from '../logger';
-import { Options, TokenPairRateOnDateTime, TokenPairRateOnDateTimeInput } from '../interfaces';
+import config from '../config';
+import { Option, TokenPairRateOnDateTime, TokenPairRateOnDateTimeInput } from '../interfaces';
 import { ping, getTicker } from '../elasticsearch';
 import schema from '../../schema.gql';
 
 export const description = 'GraphQL Server';
-export const options: Options = [
-	{ option: '-p, --ping', description: 'just ping ElasticSearch Cluster' },
+export const options: Option[] = [
+	{ option: '-H, --host <host>', description: 'bind to this host' },
+	{ option: '-p, --port <port>', description: 'bind to this port' },
 ];
 
 export default function main(options: any) {
-	if (options.ping) {
-		logger.info('Pinging ElasticSearch server...');
-		ping().then(() => {
-			logger.info('ElasticSearch is alive');
-		}).catch((error) => {
-			logger.error('Ping ElasticSearch failed', error);
-		});
-	} else {
-		let app = express();
-		app.use('/graphql', graphqlHTTP({
-			schema: buildSchema(schema),
-			rootValue: resolvers,
-			graphiql: true,
-			formatError: error => ({
-				message: error.message,
-				locations: error.locations,
-				stack: error.stack ? error.stack.split('\n') : [],
-				path: error.path
-			  })
-		}));
-		app.listen(4000, (options: any) => logger.info('Running graphQL server on localhost:4000/graphql', options));
-	}
+	let host = options.host || config.GRAPHQL_HOST;
+	let port = options.port || config.GRAPHQL_PORT;
+
+	let app = express();
+
+	app.use('/graphql', graphqlHTTP({
+		schema: buildSchema(schema),
+		rootValue: resolvers,
+		graphiql: true,
+		formatError: error => ({
+			message: error.message,
+			locations: error.locations,
+			stack: error.stack ? error.stack.split('\n') : [],
+			path: error.path
+			})
+	}));
+
+	let server = app.listen(port, host, () => {
+		logger.info(`GraphQL server is listening on ${server.address().address}:${server.address().port}/graphql`);
+	});
 }
 
 const resolvers = {

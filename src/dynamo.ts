@@ -2,7 +2,7 @@ import { DynamoDB } from 'aws-sdk';
 import uuidv4 from 'uuid/v4';
 
 import logger from './logger';
-import { config } from './config';
+import config from './config';
 // import { MyError } from './errors';
 import { Ticker } from './interfaces';
 

@@ -1,9 +1,9 @@
 // export { Ticker } from 'ccxt';
 
-export type Options = {
+export type Option = {
 	option: string;
 	description: string;
-}[];
+};
 
 export interface Ticker {
 	ask: number;

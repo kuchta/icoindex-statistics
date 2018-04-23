@@ -3,17 +3,18 @@ import fs from 'fs';
 import * as readline from 'readline';
 
 import commander from 'commander';
-// import { Pargv } from 'pargv';
 
 import logger from './logger';
+import config from './config';
+import { Option } from './interfaces';
 import pkg from '../package.json';
 
-// Allow to import schema as text
+/* Allow to import schema as text */
 require.extensions['.gql'] = (module, filename) => {
 	module.exports = fs.readFileSync(filename, 'utf8');
 };
 
-// Error handling
+/* Error handling */
 
 const unhandledRejections = new Map();
 
@@ -54,8 +55,7 @@ process.on('exit', (code: number) => {
 	}
 });
 
-// Parse command line
-
+/* Parse command line */
 commander
 	.version(pkg.version)
 	.usage('[options] <command> [options]')
@@ -70,35 +70,43 @@ commander
 	//   });
 	// .addImplicitHelpCommand();
 
-// Find all program submodules and load them
+/* Make options from configuration variables */
+Object.keys(config).forEach((key) => {
+	commander.option(`--${key.toLowerCase().replace(/\_/g, '-')} <${typeof config[key]}>`, `set config ${key}`, (value) => {
+		config[key] = value;
+	}, config[key]);
+});
 
+/* Find all program submodules and load them */
 let modulesDir = path.join(__dirname, 'modules');
 fs.readdirSync(modulesDir).map((file) => {
-	let match = file.match(/(.*)\.js$/);
+	let match = file.match(/(.*)\.(js|(?<!d\.)ts)$/);
 	if (match) {
 		let moduleName = match[1];
 		const module = require(path.join(modulesDir, moduleName));
-			if (module.default) {
-				let command = commander.command(module.args ? `${moduleName} ${module.args.join(' ')}` : moduleName);
-				if (module.description) {
-					command.description(module.description);
-				}
-				if (Array.isArray(module.options)) {
-					module.options.forEach((option: {option: string, description: string}) => {
-						command.option(option.option, option.description);
-					});
-				}
-				command.action((...options) => {
-					logger.init(commander.verbose, commander.debug);
-					logger.info(`Starting ${moduleName}...`);
-					module.default(...options);
+		if (module.default) {
+			let command = commander.command(module.args ? `${moduleName} ${module.args.join(' ')}` : moduleName);
+			if (module.description) {
+				command.description(module.description);
+			}
+			if (Array.isArray(module.options)) {
+				module.options.forEach((option: Option) => {
+					command.option(option.option, option.description);
 				});
 			}
+			command.action((...options) => {
+				logger.init(commander.verbose, commander.debug);
+				logger.info(`Starting ${moduleName}...`);
+				module.default(...options);
+			});
+		}
 	}
 });
 
 commander.parse(process.argv);
 
-if (!process.argv.slice(2).length) {
+if (commander.args.length < 1) {
 	commander.help();
 }
+
+
