@@ -85,18 +85,21 @@ fs.readdirSync(modulesDir).map((file) => {
 		let moduleName = match[1];
 		const module = require(path.join(modulesDir, moduleName));
 		if (module.default) {
-			let command = commander.command(module.args ? `${moduleName} ${module.args.join(' ')}` : moduleName);
+			let command = commander.command(moduleName);
 			if (module.description) {
 				command.description(module.description);
 			}
-			if (Array.isArray(module.options)) {
+			if (module.args) {
+				command.arguments(module.args.map((arg: string) => `<${arg}>`).join(' '));
+			}
+			if (module.options) {
 				module.options.forEach((option: Option) => {
 					command.option(option.option, option.description);
 				});
 			}
 			command.action((...options) => {
 				logger.init(commander.verbose, commander.debug);
-				logger.info(`Starting ${moduleName}...`);
+				logger.info(`Running ${moduleName}...`);
 				module.default(...options);
 			});
 		}
@@ -108,5 +111,3 @@ commander.parse(process.argv);
 if (commander.args.length < 1) {
 	commander.help();
 }
-
-

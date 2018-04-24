@@ -33,13 +33,13 @@ export function putItem(ticker: Ticker) {
 					S: uuidv4() as string
 				},
 				pair: {
-					S: ticker.symbol
+					S: ticker.pair
 				},
 				datetime: {
 					S: ticker.datetime
 				},
-				last: {
-					N: String(ticker.last)
+				value: {
+					N: String(ticker.rate)
 				}
 			}
 		}, (error, data) => {

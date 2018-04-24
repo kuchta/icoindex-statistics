@@ -7,7 +7,8 @@ import httpAWSES from 'http-aws-es';
 import logger, { MyLogger, LeveledLogMethod } from './logger';
 import config from './config';
 import { MyError } from './errors';
-import { Ticker, TokenPairRateOnDateTime } from './interfaces';
+import { Ticker } from './interfaces';
+import { DescribeTrustedAdvisorCheckRefreshStatusesRequest } from 'aws-sdk/clients/support';
 
 class LogToMyLogger {
 	error: LeveledLogMethod;
@@ -65,15 +66,24 @@ function getClient(): Client {
 	}
 }
 
-export function ping() {
+export async function ping() {
 	return getClient().ping({
 		requestTimeout: 1000,
 		maxRetries: 3
 	});
 }
 
-export function getTicker(pair: string, datetime: string) {
-	return new Promise<TokenPairRateOnDateTime>((resolve, reject) => {
+export async function getTicker(pair: string, datetime: string) {
+	let tickers = await searchTickers({ pair, datetime });
+	if (tickers) {
+		return tickers[0]._source as Ticker;
+	} else {
+		return null;
+	}
+}
+
+export async function searchTickers({ query, pair, datetime }: { query?: object, pair?: string, datetime?: string } = {}) {
+	if (pair && datetime) {
 		let dt;
 		if (datetime.toLowerCase() === 'now') {
 			dt = moment();
@@ -81,61 +91,118 @@ export function getTicker(pair: string, datetime: string) {
 			dt = moment(datetime);
 		}
 		if (!dt.isValid()) {
-			reject(new MyError('Invalid date supplied'));
+			throw new MyError('Invalid date supplied');
 		}
 		let dateProxArray = config.MAX_DATETIME_PROXIMITY.split(' ');
 		let startDateRange = dt.clone().subtract(...dateProxArray);
 		let endDateRange = dt.clone().add(...dateProxArray);
-		getClient().search<TokenPairRateOnDateTime>({
+		query = {
+			query: {
+				function_score: {
+					query: {
+						bool: {
+							must: {
+								range: { datetime: { gte: startDateRange.toISOString(), lte: endDateRange.toISOString() }}
+							},
+							filter: {
+								term: { pair: pair }
+							}
+						}
+					},
+					exp: {
+						datetime: {
+							origin: dt.toISOString(),
+							scale: '1m'
+						}
+					}
+				}
+			}
+		};
+	} else if (!query) {
+		query = {
+			query: {
+				match_all: {}
+			}
+		};
+	}
+
+	logger.info('query', query);
+	try {
+		let response = await getClient().search<Ticker>({
 			index: config.AWS_ELASTIC_INDEX,
 			type: config.AWS_ELASTIC_TYPE,
+			body: query
+		});
+
+		if (response.hits.hits.length > 0) {
+			return response.hits.hits;
+		} else {
+			return null;
+		}
+	} catch (error) {
+		throw new MyError('ES search failed', { error });
+	}
+}
+
+export async function insertTicker(pair: string, datetime: string, rate: number) {
+	try {
+		return await getClient().index<Ticker>({
+			index: config.AWS_ELASTIC_INDEX,
+			type: config.AWS_ELASTIC_TYPE,
+			body: { pair, datetime, rate }
+		});
+	} catch (error) {
+		throw new MyError('ES index failed', { error });
+	}
+}
+
+export async function removeTicker(id: string) {
+	try {
+		return await getClient().delete({
+			index: config.AWS_ELASTIC_INDEX,
+			type: config.AWS_ELASTIC_TYPE,
+			id: id
+		});
+	} catch (error) {
+		throw new MyError('ES delete failed', { error });
+	}
+}
+
+export async function createIndex() {
+	try {
+		return await getClient().indices.create({
+			index: config.AWS_ELASTIC_INDEX,
 			body: {
-				query: {
-					function_score: {
-						// query: {
-						// 	bool: {
-						// 		filter: [
-						// 			{ term: { pair }},
-						// 			{ range: { datetime: { gte: startDateRange.toISOString(), lte: endDateRange.toISOString() }}}
-						// 		]
-						// 	}
-						// },
-						linear: {
+				mappings: {
+					[config.AWS_ELASTIC_TYPE]: {
+						properties: {
+							pair: {
+								type: 'string',
+								index: 'not_analyzed'
+							},
 							datetime: {
-								origin: dt.toISOString(),
-								scale: '1m'
+								type: 'date',
+								format: 'strict_date_optional_time'
+							},
+							last: {
+								type: 'double'
 							}
 						}
 					}
 				}
 			}
-		}, (error, response) => {
-			if (error) {
-				reject(new MyError('ES search failed', { error }));
-			} else {
-				logger.info1('response', response);
-				if (response.hits.hits.length > 0) {
-					resolve(response.hits.hits[0]._source);
-				} else {
-					reject('No results found');
-				}
-			}
 		});
-	});
+	} catch (error) {
+		throw new MyError('ES delete failed', { error });
+	}
 }
 
-// export function deleteTicker(id: string) {
-// 	return new Promise<DeleteDocumentResponse>((resolve, reject) => {
-// 		getClient().delete({
-// 			index: config.AWS_ELASTIC_INDEX,
-// 			type: config.AWS_ELASTIC_TYPE,
-// 			id: `uuid=${id}`
-// 		}, (error, response) => {
-// 			if (error) {
-// 				reject(new MyError('ES delete failed', { error }));
-// 			} else {
-// 				resolve(response);
-// 			}
-// 		});
-// 	});
-// }
+export async function deleteIndex() {
+	try {
+		return await getClient().indices.delete({
+			index: config.AWS_ELASTIC_INDEX,
+		});
+	} catch (error) {
+		throw new MyError('ES delete failed', { error });
+	}
+}

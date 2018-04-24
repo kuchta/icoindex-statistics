@@ -4,7 +4,7 @@ import graphqlHTTP from 'express-graphql';
 
 import logger from '../logger';
 import config from '../config';
-import { Option, TokenPairRateOnDateTime, TokenPairRateOnDateTimeInput } from '../interfaces';
+import { Option, Ticker, TickerInput } from '../interfaces';
 import { ping, getTicker } from '../elasticsearch';
 import schema from '../../schema.gql';
 
@@ -38,7 +38,7 @@ export default function main(options: any) {
 }
 
 const resolvers = {
-	getTokenPairRate: (args: TokenPairRateOnDateTimeInput) => {
+	getTokenPairRate: (args: TickerInput) => {
 		return args.input.map(arg => getTicker(arg.pair, arg.datetime));
 	}
 };

@@ -2,7 +2,7 @@ import Rx from 'rxjs';
 
 import logger from '../logger';
 import config from '../config';
-import { Option, /* Ticker */ } from '../interfaces';
+import { Option } from '../interfaces';
 import { receiveTicker } from '../sqs';
 import { putItem } from '../dynamo';
 
