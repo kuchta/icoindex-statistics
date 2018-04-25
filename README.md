@@ -1,6 +1,6 @@
 # Ticker service
 
-Ticker service is a group of services used to fetch, store and query tickers provided by CoinMarketCap.
+*Ticker service is a group of services used to fetch, store and query tickers provided by CoinMarketCap.*
 
 The main components are:
 1. [Fetch Service](#fetch-service)
@@ -51,6 +51,8 @@ Global options **-v** and **-d** and used to enable more verbose and debug log m
 
 ## Configuration File
 
+*Configuration is stored in file `config.json`.*
+
 ```
 {
 	"AWS_REGION": "eu-west-1",
@@ -73,7 +75,7 @@ All services uses configuration variables **AWS_REGION**, **AWS_ACCESS_ID** and 
 
 # Fetch Service
 
-*Retrieves tickers from exchange and push it to Amazon SQS service*
+*Retrieves tickers from exchange and push it to Amazon SQS service.*
 
 ## CLI
 ```
@@ -98,7 +100,7 @@ $ node bin/index.js fetchService -h
 1. AWS_SQS_QUEUE_URL
 
 # Store Service
-*Retrieves tickers from Amazon SQS service and stores it to Dynamo database (from there it's automaticly saved to Elastic database*
+*Retrieves tickers from Amazon SQS service and stores it to Dynamo database (from there it's automaticly saved to Elastic database.*
 
 ## CLI
 
@@ -123,9 +125,9 @@ $ node bin/index.js storeService -h
 
 # Query Service
 
-*Query service is GraphQL service for querying ticker database
+*Query service is GraphQL service for querying ticker database.*
 
-# CLI
+## CLI
 
 ```
 $ node bin/index.js queryService -h
@@ -261,4 +263,27 @@ query MyQuery($tickers: [TickerInput]) {
     ]
   }
 }
+```
+
+# Ticker CLI
+
+*In addition to these services the command line tool provides support for basic ticker management utilities.*
+
+## CLI
+
+```
+$ node bin/index.js tickerCli -h
+
+  Usage: tickerCli [options]
+
+  Ticker Management Utility
+
+  Options:
+
+    -C, --create-index                        create index
+    -D, --delete-index                        delete index
+    -I, --insert-ticker <pair datetime last>  insert ticker
+    -R, --remove-ticker <id>                  remove ticker
+    -S, --search-tickers [pair datetime]      search tickers
+    -h, --help                                output usage information
 ```
