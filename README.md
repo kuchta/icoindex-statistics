@@ -13,7 +13,7 @@ The script provides builtin help which can be accessed by --help [-h] parameter.
 ## CLI
 
 ```
-[kuchta@kuchta icoindex-statistics]$ node bin/index.js -h
+$ node bin/index.js -h
 
   Usage: index [options] <command> [options]
 
