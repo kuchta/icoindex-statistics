@@ -43,6 +43,7 @@ const resolvers = {
 			try {
 				let pair = ticker.pair.split('/');
 				if (pair.length !== 2) {
+					logger.warning(`unknown pair format ${ticker.pair}`);
 					return ticker;
 				}
 				if (pair[1] === 'USD') {
@@ -51,7 +52,7 @@ const resolvers = {
 				} else {
 					let first = await getTicker(`${pair[0]}/USD`, ticker.datetime);
 					let second = await getTicker(`${pair[1]}/USD`, ticker.datetime);
-					logger.debug(`first: ${first}, second: ${second}`);
+					logger.info1(`first: ${first}, second: ${second}`);
 					return {
 							pair: ticker.pair,
 							datetime: second.datetime,

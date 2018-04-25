@@ -25,7 +25,6 @@ function getClient(): DynamoDB {
 }
 
 export function insertTicker(pair: string, datetime: string, rate: number) {
-	logger.info1('inserting ticker', { pair, datetime, rate });
 	return new Promise((resolve, reject) => {
 		getClient().putItem({
 			TableName: config.AWS_DYNAMO_TABLE,
@@ -44,7 +43,6 @@ export function insertTicker(pair: string, datetime: string, rate: number) {
 				}
 			}
 		}, (error, data) => {
-			logger.debug('callback', { error, data });
 			if (error) {
 				reject(error);
 			} else {

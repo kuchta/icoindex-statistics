@@ -60,7 +60,8 @@ function getClient(): Client {
 			//   accessKey: config.AWS_ACCESS_ID,
 			//   secretKey: config.AWS_SECRET_KEY,
 			// },
-			log: LogToMyLogger
+			log: LogToMyLogger,
+			maxRetries: 10
 		});
 		return client;
 	}
