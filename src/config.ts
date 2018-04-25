@@ -30,7 +30,7 @@ Object.entries(config).forEach(([key, value]) => {
 			} else {
 				value = val;
 			}
-			logger.info(`Setting config: ${key}: ${value}`);
+			logger.debug(`Setting config: ${key}: ${value}`);
 			Object.defineProperty(config, key, {
 				get: getter(key, value)
 			});
