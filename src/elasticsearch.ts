@@ -54,7 +54,7 @@ function getClient(): Client {
 				port: 443,
 			},
 			connectionClass: httpAWSES,
-			sniffOnStart: true,
+			// sniffOnStart: true,
 			// amazonES: {
 			//   region: config.AWS_REGION,
 			//   accessKey: config.AWS_ACCESS_ID,
