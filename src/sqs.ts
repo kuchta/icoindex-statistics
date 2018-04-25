@@ -110,6 +110,8 @@ export function purgeQueue() {
 						}, (error) => {
 							if (error) {
 								reject(new MyError('SQS purgeQueue => deleteMessage failed', { error }));
+							} else {
+								process.stdout.write('.');
 							}
 						});
 					}

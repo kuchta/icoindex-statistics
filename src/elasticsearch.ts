@@ -66,7 +66,7 @@ function getClient(): Client {
 	}
 }
 
-export async function ping() {
+export function ping() {
 	return getClient().ping({
 		requestTimeout: 1000,
 		maxRetries: 3
@@ -75,11 +75,10 @@ export async function ping() {
 
 export async function getTicker(pair: string, datetime: string) {
 	let tickers = await searchTickers({ pair, datetime });
-	if (tickers) {
-		return tickers[0]._source as Ticker;
-	} else {
-		return null;
+	if (!tickers || tickers.length < 1) {
+		throw new MyError('No tickers found');
 	}
+	return tickers[0]._source as Ticker;
 }
 
 export async function searchTickers({ query, pair, datetime }: { query?: object, pair?: string, datetime?: string } = {}) {
@@ -126,7 +125,7 @@ export async function searchTickers({ query, pair, datetime }: { query?: object,
 		};
 	}
 
-	logger.info('query', query);
+	// logger.info('query', query);
 	try {
 		let response = await getClient().search<Ticker>({
 			index: config.AWS_ELASTIC_INDEX,

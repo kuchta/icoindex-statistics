@@ -22,7 +22,7 @@ export default function main(options: any) {
 	// .map((ticker) => ({ ...ticker, pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
 	.subscribe(
 		(ticker) => {
-			if ((typeof options.print === 'string' && ticker.pair === options.print) || (typeof options.print === 'boolean' && options.print) {
+			if ((typeof options.print === 'string' && ticker.pair === options.print) || (typeof options.print === 'boolean' && options.print)) {
 				Object.keys(ticker).forEach(key => ticker[key] === undefined && delete ticker[key]);
 				logger.info('Received from exchange', ticker);
 			} else {

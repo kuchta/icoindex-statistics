@@ -1,15 +1,16 @@
 import logger from '../logger';
 import { Option } from '../interfaces';
-import { ping, getTicker, createIndex, deleteIndex, insertTicker, removeTicker, searchTickers } from '../elasticsearch';
+import { getTicker, searchTickers, createIndex, deleteIndex } from '../elasticsearch';
+import { insertTicker, removeTicker } from '../dynamo';
 import { MyError } from '../errors';
 
-export const description = 'Search Elastic';
+export const description = 'Ticker Management Utility';
 export const options: Option[] = [
 	{ option: '-C, --create-index', description: 'create index' },
 	{ option: '-D, --delete-index', description: 'delete index' },
-	{ option: '-I, --insert-ticker <pair datetime last>', description: 'put ticker' },
-	{ option: '-R, --remove-ticker <id>', description: 'delete ticker' },
-	{ option: '-S, --search-tickers [pair datetime]', description: 'delete ticker' },
+	{ option: '-I, --insert-ticker <pair datetime last>', description: 'insert ticker' },
+	{ option: '-R, --remove-ticker <id>', description: 'remove ticker' },
+	{ option: '-S, --search-tickers [pair datetime]', description: 'search tickers' },
 ];
 
 export default async function main(option: {[key: string]: string}) {
@@ -31,6 +32,9 @@ export default async function main(option: {[key: string]: string}) {
 			logger.info('ticker inserted', ret);
 		}
 		if (option.removeTicker) {
+			if (typeof option.removeTicker !== 'string') {
+				throw new MyError('Invalud number of arguments. Expected 1 arguments');
+			}
 			let ret = await removeTicker(option.removeTicker);
 			logger.info('ticker deleted', ret);
 		}

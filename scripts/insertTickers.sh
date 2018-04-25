@@ -1,0 +1,16 @@
+#!/bin/sh
+
+node bin/index.js tickers -I "BTC/USD 2018-01-01T09:00Z 9000"
+node bin/index.js tickers -I "BTC/USD 2018-01-01T10:00Z 10000"
+node bin/index.js tickers -I "BTC/USD 2018-01-01T11:00Z 11000"
+node bin/index.js tickers -I "BTC/USD 2018-01-01T12:00Z 12000"
+node bin/index.js tickers -I "BTC/USD 2018-01-01T13:00Z 13000"
+node bin/index.js tickers -I "BTC/USD 2018-01-01T14:00Z 14000"
+node bin/index.js tickers -I "BTC/USD 2018-01-01T15:00Z 15000"
+node bin/index.js tickers -I "ETH/USD 2018-01-01T09:00Z 900"
+node bin/index.js tickers -I "ETH/USD 2018-01-01T10:00Z 10000"
+node bin/index.js tickers -I "ETH/USD 2018-01-01T11:00Z 11000"
+node bin/index.js tickers -I "ETH/USD 2018-01-01T12:00Z 12000"
+node bin/index.js tickers -I "ETH/USD 2018-01-01T13:00Z 13000"
+node bin/index.js tickers -I "ETH/USD 2018-01-01T14:00Z 14000"
+node bin/index.js tickers -I "ETH/USD 2018-01-01T15:00Z 15000"

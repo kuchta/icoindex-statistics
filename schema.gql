@@ -2,15 +2,14 @@ schema {
 	query: Query
 }
 type Query {
-	getTokenPairRate(input: [TokenPairRateOnDateTimeInput]): [TokenPairRateOnDateTime]
+	getTokenPairRate(tickers: [TickerInput]): [Ticker]
 }
 scalar Date
-input TokenPairRateOnDateTimeInput {
+input TickerInput {
 	pair: String!
 	datetime: Date!
-	rate: Float
 }
-type TokenPairRateOnDateTime {
+type Ticker {
 	pair: String!
 	datetime: Date!
 	rate: Float

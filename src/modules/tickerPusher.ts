@@ -4,7 +4,7 @@ import logger from '../logger';
 import config from '../config';
 import { Option } from '../interfaces';
 import { receiveTicker } from '../sqs';
-import { putItem } from '../dynamo';
+import { insertTicker } from '../dynamo';
 
 export const description = 'Push tickers to database';
 export const options: Option[] = [{ option: '-p, --print', description: 'Dont\'t save, just print' }];
@@ -17,7 +17,7 @@ export default function main(options: any) {
 			if (options.print) {
 				logger.info('Received from queue', ticker);
 			} else {
-				putItem(ticker)
+				insertTicker(ticker.pair, ticker.datetime, ticker.rate)
 				.then(() => logger.info1('Succesfully sent to database', ticker))
 				.catch((error) => logger.error('Sending to database failed', error));
 			}

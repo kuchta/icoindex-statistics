@@ -24,7 +24,8 @@ function getClient(): DynamoDB {
 	}
 }
 
-export function putItem(ticker: Ticker) {
+export function insertTicker(pair: string, datetime: string, rate: number) {
+	logger.info1('inserting ticker', { pair, datetime, rate });
 	return new Promise((resolve, reject) => {
 		getClient().putItem({
 			TableName: config.AWS_DYNAMO_TABLE,
@@ -33,13 +34,33 @@ export function putItem(ticker: Ticker) {
 					S: uuidv4() as string
 				},
 				pair: {
-					S: ticker.pair
+					S: pair
 				},
 				datetime: {
-					S: ticker.datetime
+					S: datetime
 				},
-				value: {
-					N: String(ticker.rate)
+				rate: {
+					N: String(rate)
+				}
+			}
+		}, (error, data) => {
+			logger.debug('callback', { error, data });
+			if (error) {
+				reject(error);
+			} else {
+				resolve(data);
+			}
+		});
+	});
+}
+
+export function removeTicker(id: string) {
+	return new Promise((resolve, reject) => {
+		getClient().deleteItem({
+			TableName: config.AWS_DYNAMO_TABLE,
+			Key: {
+				uuid: {
+					S: id
 				}
 			}
 		}, (error, data) => {

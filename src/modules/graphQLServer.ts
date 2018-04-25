@@ -38,7 +38,30 @@ export default function main(options: any) {
 }
 
 const resolvers = {
-	getTokenPairRate: (args: TickerInput) => {
-		return args.input.map(arg => getTicker(arg.pair, arg.datetime));
+	getTokenPairRate: async (input: TickerInput) => {
+		return input.tickers.map(async ticker => {
+			try {
+				let pair = ticker.pair.split('/');
+				if (pair.length !== 2) {
+					return ticker;
+				}
+				if (pair[1] === 'USD') {
+					let ret = await getTicker(ticker.pair, ticker.datetime);
+					return ret;
+				} else {
+					let first = await getTicker(`${pair[0]}/USD`, ticker.datetime);
+					let second = await getTicker(`${pair[1]}/USD`, ticker.datetime);
+					logger.debug(`first: ${first}, second: ${second}`);
+					return {
+							pair: ticker.pair,
+							datetime: second.datetime,
+							rate: first.rate / second.rate
+					};
+				}
+			} catch (error) {
+				logger.warning('getTokenPairRate error', error);
+				return ticker;
+			}
+		});
 	}
 };

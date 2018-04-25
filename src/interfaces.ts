@@ -4,7 +4,7 @@ export type Option = {
 };
 
 export interface TickerInput {
-	input: Ticker[];
+	tickers: Ticker[];
 }
 
 export interface Ticker {
