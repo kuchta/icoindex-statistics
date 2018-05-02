@@ -52,15 +52,56 @@ export function insertTicker(pair: string, datetime: string, rate: number) {
 	});
 }
 
-export function removeTicker(id: string) {
+export function removeTicker(pair: string, datetime: string) {
 	return new Promise((resolve, reject) => {
 		getClient().deleteItem({
 			TableName: config.AWS_DYNAMO_TABLE,
 			Key: {
-				uuid: {
-					S: id
+				pair: {
+					S: pair
+				},
+				datetime: {
+					S: datetime
 				}
 			}
+		}, (error, data) => {
+			if (error) {
+				reject(error);
+			} else {
+				resolve(data);
+			}
+		});
+	});
+}
+
+export function describeTable() {
+	return new Promise((resolve, reject) => {
+		getClient().describeTable({
+			TableName: config.AWS_DYNAMO_TABLE
+		}, (error, data) => {
+			if (error) {
+				reject(error);
+			} else {
+				resolve(data);
+			}
+		});
+	});
+}
+
+export function updateTable() {
+	return new Promise((resolve, reject) => {
+		getClient().updateTable({
+			TableName: config.AWS_DYNAMO_TABLE,
+			AttributeDefinitions: [{
+				AttributeName: 'pair',
+				AttributeType: 'S',
+			}, {
+				AttributeName: 'datetime',
+				AttributeType: 'S',
+			}, {
+				AttributeName: 'rate',
+				AttributeType: 'N',
+			}]
 		}, (error, data) => {
 			if (error) {
 				reject(error);

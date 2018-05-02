@@ -1,15 +1,12 @@
 import logger from '../logger';
 import { Option } from '../interfaces';
-import { getTicker, searchTickers, createIndex, deleteIndex } from '../elasticsearch';
-import { insertTicker, removeTicker } from '../dynamo';
+import { getTicker, searchTickers, createIndex, deleteIndex } from '../elastic';
 import { MyError } from '../errors';
 
 export const description = 'Ticker Management Utility';
 export const options: Option[] = [
 	{ option: '-C, --create-index', description: 'create index' },
 	{ option: '-D, --delete-index', description: 'delete index' },
-	{ option: '-I, --insert-ticker <pair datetime last>', description: 'insert ticker' },
-	{ option: '-R, --remove-ticker <id>', description: 'remove ticker' },
 	{ option: '-S, --search-tickers [pair datetime]', description: 'search tickers' },
 ];
 
@@ -23,21 +20,6 @@ export default async function main(option: {[key: string]: string}) {
 			await deleteIndex();
 			logger.info('index deleted');
 		}
-		if (option.insertTicker) {
-			let args = option.insertTicker.split(' ');
-			if (args.length !== 3 || parseFloat(args[3]) === NaN) {
-				throw new MyError('Invalud number of arguments. Expected 3 arguments in double quotes');
-			}
-			let ret = await insertTicker(args[0], args[1], parseFloat(args[2]));
-			logger.info('ticker inserted', ret);
-		}
-		if (option.removeTicker) {
-			if (typeof option.removeTicker !== 'string') {
-				throw new MyError('Invalud number of arguments. Expected 1 arguments');
-			}
-			let ret = await removeTicker(option.removeTicker);
-			logger.info('ticker deleted', ret);
-		}
 		if (option.searchTickers) {
 			let results;
 			if (typeof option.searchTickers === 'string') {
@@ -50,7 +32,11 @@ export default async function main(option: {[key: string]: string}) {
 				results = await searchTickers();
 			}
 			if (results) {
-				logger.info('Results', results);
+				logger.info('Results', results.map((data) => ({
+					pair: data._source.pair,
+					datetime: data._source.datetime,
+					rate: data._source.rate
+				})));
 				logger.info(`Count: ${results.length}`);
 			} else {
 				logger.info('no results');

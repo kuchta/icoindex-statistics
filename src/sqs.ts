@@ -97,9 +97,7 @@ export function purgeQueue() {
 		}, (error, data) => {
 			if (error) {
 				reject(new MyError('SQS purgeQueue => receiveMessage failed', { error }));
-			} else if (!data.Messages) {
-				reject(new MyError('SQS purgeQueue => receiveMessage didn\'t contain Messages field', { object: data }));
-			} else {
+			} else if (data.Messages) {
 				data.Messages.forEach((message) => {
 					if (!message.ReceiptHandle) {
 						reject(new MyError('SQS purgeQueue => receiveMessage didn\'t contain ReceiptHandle field', { object: message }));

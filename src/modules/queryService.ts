@@ -1,11 +1,12 @@
-import { buildSchema, GraphQLSchema, GraphQLObjectType, GraphQLString } from 'graphql';
+import { Server } from 'http';
 import express from 'express';
 import graphqlHTTP from 'express-graphql';
+import { buildSchema, GraphQLSchema, GraphQLObjectType, GraphQLString } from 'graphql';
 
 import logger from '../logger';
 import config from '../config';
 import { Option, Ticker, TickerInput } from '../interfaces';
-import { ping, getTicker } from '../elasticsearch';
+import { ping, getTicker } from '../elastic';
 import schema from '../../schema.gql';
 import { MyError } from '../errors';
 
@@ -35,16 +36,19 @@ export function queryService(host: string, port: number, listening?: () => void)
 	}));
 
 	let server = app.listen(port, host, () => {
+		logger.info(`GraphQL server is listening on ${server.address().address}:${server.address().port}/graphql`);
+
 		if (listening) {
 			listening();
 		}
-		logger.info(`GraphQL server is listening on ${server.address().address}:${server.address().port}/graphql`);
 	});
+
+	return server;
 }
 
 const resolvers = {
 	getTokenPairRate: async (input: TickerInput) => {
-		return input.tickers.map(async ticker => {
+		return input.tickers.map(async (ticker) => {
 			try {
 				let pair = ticker.pair.split('/');
 				if (pair.length !== 2) {

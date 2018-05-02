@@ -1,4 +1,4 @@
-import { interval, pipe } from 'rxjs';
+import { Subscription, interval, pipe } from 'rxjs';
 import { flatMap } from 'rxjs/operators';
 
 
@@ -27,17 +27,21 @@ export default function main(options: any) {
 
 }
 
-export function storeService({ subscribe, errorHandler, doneHandler }: { subscribe?: (ticker: Ticker) => void, errorHandler?: (error: any) => void, doneHandler?: () => void } = {}) {
-	interval(config.DYNAMO_INTERVAL).pipe(
+export function storeService({ subscribe, eventHandler, errorHandler, doneHandler }: {
+		subscribe?: (ticker: Ticker) => void,
+		eventHandler?: (ticker: Ticker) => void,
+		errorHandler?: (error: any) => void,
+		doneHandler?: () => void } = {}) {
+
+	return interval(config.DYNAMO_INTERVAL).pipe(
 		flatMap(() => receiveTicker())
 	).subscribe(
 		subscribe ? (ticker) => subscribe(ticker) : (ticker) => {
 			insertTicker(ticker.pair, ticker.datetime, ticker.rate)
-			.then(() => logger.info1('Succesfully sent to database', ticker))
+			.then(() => eventHandler ? eventHandler(ticker) : () => logger.info1('Succesfully sent to database', ticker))
 			.catch((error) => errorHandler ? errorHandler(error) : logger.error('Sending to database failed', error));
 		},
 		(error) => errorHandler ? errorHandler(error) : logger.error('Error', error),
 		() => doneHandler ? doneHandler() : logger.info('Completed')
 	);
-
 }

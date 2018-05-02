@@ -24,13 +24,10 @@ Object.entries(config).forEach(([key, value]) => {
 	Object.defineProperty(config, key, {
 		get: getter(key, value),
 		set: (val) => {
-			let intVal = parseInt(val);
-			if (intVal) {
-				value = intVal;
-			} else {
-				value = val;
+			if (typeof config[key] === 'number') {
+				val = parseInt(val);
 			}
-			logger.debug(`Setting config: ${key}: ${value}`);
+			logger.debug(`Setting config: ${key}: ${val}`);
 			Object.defineProperty(config, key, {
 				get: getter(key, value)
 			});

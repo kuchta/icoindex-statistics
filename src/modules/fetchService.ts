@@ -1,4 +1,4 @@
-import { Observable, interval, pipe } from 'rxjs';
+import { Subscription, Observable, interval, pipe } from 'rxjs';
 import { map, flatMap, filter } from 'rxjs/operators';
 import ccxt from 'ccxt';
 
@@ -34,14 +34,19 @@ export default function main(options: any) {
 	}
 }
 
-export function fetchService(observable: Observable<Ticker>, { subscribe, errorHandler, doneHandler }: { subscribe?: (ticker: Ticker) => void, errorHandler?: (error: any) => void, doneHandler?: () => void } = {}) {
-	observable.subscribe(
+export function fetchService(observable: Observable<Ticker>, { subscribe, eventHandler, errorHandler, doneHandler }: {
+	subscribe?: (ticker: Ticker) => void,
+	eventHandler?: (ticker: Ticker) => void,
+	errorHandler?: (error: any) => void,
+	doneHandler?: () => void } = {}) {
+
+	return observable.subscribe(
 		subscribe ? (ticker) => subscribe(ticker) : (ticker) => {
 			sendTicker(ticker)
-			.then(() => logger.info1('Sucessfully sent to queue', ticker))
+			.then(() => eventHandler ? eventHandler(ticker) : () => logger.info1('Sucessfully sent to queue', ticker))
 			.catch((error) => errorHandler ? errorHandler(error) : logger.error('Sending to queue failed', error));
 		},
 		(error) => errorHandler ? errorHandler(error) : logger.error('Error', error),
-		() => doneHandler ? doneHandler() : logger.info('Completed')
+		doneHandler ? doneHandler : undefined
 	);
 }
