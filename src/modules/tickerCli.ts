@@ -50,7 +50,8 @@ export default async function main(option: {[key: string]: string}) {
 				results = await searchTickers();
 			}
 			if (results) {
-				logger.info('results', results);
+				logger.info('Results', results);
+				logger.info(`Count: ${results.length}`);
 			} else {
 				logger.info('no results');
 			}

@@ -7,6 +7,7 @@ import config from '../config';
 import { Option, Ticker, TickerInput } from '../interfaces';
 import { ping, getTicker } from '../elasticsearch';
 import schema from '../../schema.gql';
+import { MyError } from '../errors';
 
 export const description = 'GraphQL Server';
 export const options: Option[] = [
@@ -15,9 +16,10 @@ export const options: Option[] = [
 ];
 
 export default function main(options: any) {
-	let host = options.host || config.GRAPHQL_HOST;
-	let port = options.port || config.GRAPHQL_PORT;
+	queryService(options.host || config.GRAPHQL_HOST, options.port || config.GRAPHQL_PORT);
+}
 
+export function queryService(host: string, port: number, listening?: () => void) {
 	let app = express();
 
 	app.use('/graphql', graphqlHTTP({
@@ -33,6 +35,9 @@ export default function main(options: any) {
 	}));
 
 	let server = app.listen(port, host, () => {
+		if (listening) {
+			listening();
+		}
 		logger.info(`GraphQL server is listening on ${server.address().address}:${server.address().port}/graphql`);
 	});
 }
@@ -43,16 +48,13 @@ const resolvers = {
 			try {
 				let pair = ticker.pair.split('/');
 				if (pair.length !== 2) {
-					logger.warning(`unknown pair format ${ticker.pair}`);
-					return ticker;
+					throw new MyError(`Invalid pair format supplied: "${ticker.pair}"`);
 				}
 				if (pair[1] === 'USD') {
-					let ret = await getTicker(ticker.pair, ticker.datetime);
-					return ret;
+					return await getTicker(ticker.pair, ticker.datetime);
 				} else {
 					let first = await getTicker(`${pair[0]}/USD`, ticker.datetime);
 					let second = await getTicker(`${pair[1]}/USD`, ticker.datetime);
-					logger.info1(`first: ${first}, second: ${second}`);
 					return {
 							pair: ticker.pair,
 							datetime: second.datetime,

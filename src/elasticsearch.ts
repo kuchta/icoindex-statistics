@@ -91,7 +91,7 @@ export async function searchTickers({ query, pair, datetime }: { query?: object,
 			dt = moment(datetime);
 		}
 		if (!dt.isValid()) {
-			throw new MyError('Invalid date supplied');
+			throw new MyError(`Invalid date format supplied: "${datetime}"`);
 		}
 		let dateProxArray = config.MAX_DATETIME_PROXIMITY.split(' ');
 		let startDateRange = dt.clone().subtract(...dateProxArray);
@@ -144,30 +144,6 @@ export async function searchTickers({ query, pair, datetime }: { query?: object,
 	}
 }
 
-export async function insertTicker(pair: string, datetime: string, rate: number) {
-	try {
-		return await getClient().index<Ticker>({
-			index: config.AWS_ELASTIC_INDEX,
-			type: config.AWS_ELASTIC_TYPE,
-			body: { pair, datetime, rate }
-		});
-	} catch (error) {
-		throw new MyError('ES index failed', { error });
-	}
-}
-
-export async function removeTicker(id: string) {
-	try {
-		return await getClient().delete({
-			index: config.AWS_ELASTIC_INDEX,
-			type: config.AWS_ELASTIC_TYPE,
-			id: id
-		});
-	} catch (error) {
-		throw new MyError('ES delete failed', { error });
-	}
-}
-
 export async function createIndex() {
 	try {
 		return await getClient().indices.create({
@@ -201,6 +177,32 @@ export async function deleteIndex() {
 	try {
 		return await getClient().indices.delete({
 			index: config.AWS_ELASTIC_INDEX,
+		});
+	} catch (error) {
+		throw new MyError('ES delete failed', { error });
+	}
+}
+
+/* Not used, just for testing */
+export async function insertTicker(pair: string, datetime: string, rate: number) {
+	try {
+		return await getClient().index<Ticker>({
+			index: config.AWS_ELASTIC_INDEX,
+			type: config.AWS_ELASTIC_TYPE,
+			body: { pair, datetime, rate }
+		});
+	} catch (error) {
+		throw new MyError('ES index failed', { error });
+	}
+}
+
+/* Not used, just for testing */
+export async function removeTicker(id: string) {
+	try {
+		return await getClient().delete({
+			index: config.AWS_ELASTIC_INDEX,
+			type: config.AWS_ELASTIC_TYPE,
+			id: id
 		});
 	} catch (error) {
 		throw new MyError('ES delete failed', { error });

@@ -1,28 +1,43 @@
-import Rx from 'rxjs';
+import { interval, pipe } from 'rxjs';
+import { flatMap } from 'rxjs/operators';
+
 
 import logger from '../logger';
 import config from '../config';
-import { Option } from '../interfaces';
+import { Option, Ticker } from '../interfaces';
 import { receiveTicker } from '../sqs';
 import { insertTicker } from '../dynamo';
 
 export const description = 'Push tickers to database';
-export const options: Option[] = [{ option: '-p, --print', description: 'Dont\'t save, just print' }];
+export const options: Option[] = [
+	{ option: '-p, --print [pair]', description: 'Dont\'t save, just print' }
+];
 
 export default function main(options: any) {
-	Rx.Observable.interval(config.DYNAMO_INTERVAL)
-	.flatMap(() => receiveTicker())
-	.subscribe(
-		(ticker) => {
-			if (options.print) {
+	if (options.print) {
+		storeService({ subscribe: (ticker) => {
+			if (!(typeof options.print === 'string' && ticker.pair !== options.print)) {
+				// Object.keys(ticker).forEach(key => ticker[key] === undefined && delete ticker[key]);
 				logger.info('Received from queue', ticker);
-			} else {
-				insertTicker(ticker.pair, ticker.datetime, ticker.rate)
-				.then(() => logger.info1('Succesfully sent to database', ticker))
-				.catch((error) => logger.error('Sending to database failed', error));
 			}
+		}});
+	} else {
+		storeService();
+	}
+
+}
+
+export function storeService({ subscribe, errorHandler, doneHandler }: { subscribe?: (ticker: Ticker) => void, errorHandler?: (error: any) => void, doneHandler?: () => void } = {}) {
+	interval(config.DYNAMO_INTERVAL).pipe(
+		flatMap(() => receiveTicker())
+	).subscribe(
+		subscribe ? (ticker) => subscribe(ticker) : (ticker) => {
+			insertTicker(ticker.pair, ticker.datetime, ticker.rate)
+			.then(() => logger.info1('Succesfully sent to database', ticker))
+			.catch((error) => errorHandler ? errorHandler(error) : logger.error('Sending to database failed', error));
 		},
-		(error) => logger.error('Error', error),
-		() => logger.info('Completed')
+		(error) => errorHandler ? errorHandler(error) : logger.error('Error', error),
+		() => doneHandler ? doneHandler() : logger.info('Completed')
 	);
+
 }

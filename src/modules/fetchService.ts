@@ -1,10 +1,12 @@
-import Rx from 'rxjs';
+import { Observable, interval, pipe } from 'rxjs';
+import { map, flatMap, filter } from 'rxjs/operators';
 import ccxt from 'ccxt';
 
 import logger from '../logger';
 import config from '../config';
 import { Option, Ticker } from '../interfaces';
 import { sendTicker } from '../sqs';
+import { VersionIdMarker } from 'aws-sdk/clients/s3';
 
 const coinMarketCap = new ccxt.coinmarketcap();
 
@@ -14,24 +16,32 @@ export const options: Option[] = [
 ];
 
 export default function main(options: any) {
-	Rx.Observable.interval(config.EXCHANGE_INTERVAL)
-	.flatMap(() => coinMarketCap.fetchTickers())
-	.flatMap((data) => Object.values(data))
-	// .filter((data) => data.last ? false : true)
-	.map((ticker) => ({ pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
-	// .map((ticker) => ({ ...ticker, pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
-	.subscribe(
-		(ticker) => {
-			if ((typeof options.print === 'string' && ticker.pair === options.print) || (typeof options.print === 'boolean' && options.print)) {
-				Object.keys(ticker).forEach(key => ticker[key] === undefined && delete ticker[key]);
+	let observable = interval(config.EXCHANGE_INTERVAL).pipe(
+		flatMap(() => coinMarketCap.fetchTickers()),
+		flatMap((data) => Object.values(data)),
+		filter((ticker) => ticker.close !== undefined),
+		map((ticker) => ({ pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
+	);
+	if (options.print) {
+		fetchService(observable, { subscribe: (ticker) => {
+			if (!(typeof options.print === 'string' && ticker.pair !== options.print)) {
+				// Object.keys(ticker).forEach(key => ticker[key] === undefined && delete ticker[key]);
 				logger.info('Received from exchange', ticker);
-			} else {
-				sendTicker(ticker)
-				.then(() => logger.info1('Sucessfully sent to queue', ticker))
-				.catch((error) => logger.error('Sending to queue failed', error));
 			}
+		}});
+	} else {
+		fetchService(observable);
+	}
+}
+
+export function fetchService(observable: Observable<Ticker>, { subscribe, errorHandler, doneHandler }: { subscribe?: (ticker: Ticker) => void, errorHandler?: (error: any) => void, doneHandler?: () => void } = {}) {
+	observable.subscribe(
+		subscribe ? (ticker) => subscribe(ticker) : (ticker) => {
+			sendTicker(ticker)
+			.then(() => logger.info1('Sucessfully sent to queue', ticker))
+			.catch((error) => errorHandler ? errorHandler(error) : logger.error('Sending to queue failed', error));
 		},
-		(error) => logger.error('Error', error),
-		() => logger.info('Completed')
+		(error) => errorHandler ? errorHandler(error) : logger.error('Error', error),
+		() => doneHandler ? doneHandler() : logger.info('Completed')
 	);
 }
