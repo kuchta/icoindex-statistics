@@ -2,24 +2,6 @@ import logger from './logger';
 import { MyError } from './errors';
 import config from '../config.json';
 
-export interface Config {
-	AWS_REGION: string;
-	AWS_ACCESS_ID: string;
-	AWS_SECRET_KEY: string;
-	AWS_SQS_QUEUE_URL: string;
-	AWS_DYNAMO_TABLE: string;
-	AWS_ELASTIC_HOST: string;
-	AWS_ELASTIC_INDEX: string;
-	AWS_ELASTIC_TYPE: string;
-	GRAPHQL_HOST: string;
-	GRAPHQL_PORT: number;
-	DYNAMO_INTERVAL: number;
-	EXCHANGE_INTERVAL: number;
-	MAX_DATETIME_PROXIMITY: string;
-}
-
-// const config: Config = configJson;
-
 Object.entries(config).forEach(([key, value]) => {
 	Object.defineProperty(config, key, {
 		get: getter(key, value),
@@ -63,4 +45,4 @@ Object.keys(config).forEach((key) => {
 	}
 });
 
-export default config as Config;
+export default config /*as Config*/;

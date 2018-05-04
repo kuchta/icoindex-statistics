@@ -20,7 +20,7 @@ class LogToMyLogger {
 	constructor(/* config: ConfigOptions */) {
 		this.error = logger.error.bind(logger);
 		this.warning = logger.warning.bind(logger);
-		this.info = logger.info.bind(logger);
+		this.info = logger.debug.bind(logger);
 		this.debug = logger.debug.bind(logger);
 		this.close = () => { /* empty */ };
 		// @ts-ignore: argument is declared but its value is never read.
@@ -192,6 +192,18 @@ export async function deleteIndex() {
 	}
 }
 
+export async function removeTicker(id: string) {
+	try {
+		return await getClient().delete({
+			index: config.AWS_ELASTIC_INDEX,
+			type: config.AWS_ELASTIC_TYPE,
+			id: id
+		});
+	} catch (error) {
+		throw new MyError('ES delete failed', { error });
+	}
+}
+
 // /* Not used, just for testing */
 // export async function insertTicker(pair: string, datetime: string, rate: number) {
 // 	try {
@@ -202,18 +214,5 @@ export async function deleteIndex() {
 // 		});
 // 	} catch (error) {
 // 		throw new MyError('ES index failed', { error });
-// 	}
-// }
-
-// /* Not used, just for testing */
-// export async function removeTicker(id: string) {
-// 	try {
-// 		return await getClient().delete({
-// 			index: config.AWS_ELASTIC_INDEX,
-// 			type: config.AWS_ELASTIC_TYPE,
-// 			id: id
-// 		});
-// 	} catch (error) {
-// 		throw new MyError('ES delete failed', { error });
 // 	}
 // }

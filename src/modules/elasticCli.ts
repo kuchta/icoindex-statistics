@@ -1,12 +1,13 @@
 import logger from '../logger';
 import { Option } from '../interfaces';
-import { getTicker, searchTickers, createIndex, deleteIndex } from '../elastic';
+import { createIndex, deleteIndex, searchTickers, removeTicker } from '../elastic';
 import { MyError } from '../errors';
 
 export const description = 'Ticker Management Utility';
 export const options: Option[] = [
 	{ option: '-C, --create-index', description: 'create index' },
 	{ option: '-D, --delete-index', description: 'delete index' },
+	{ option: '-R, --remove-ticker <id>', description: 'remove ticker' },
 	{ option: '-S, --search-tickers [pair datetime [exchange]]', description: 'search tickers' },
 ];
 
@@ -19,6 +20,11 @@ export default async function main(option: {[key: string]: string}) {
 		if (option.deleteIndex) {
 			await deleteIndex();
 			logger.info('index deleted');
+		}
+		if (option.removeTicker) {
+			logger.info(`Removing ticker: "${option.removeTicker}"`);
+			let ret = await removeTicker(option.removeTicker);
+			logger.info('ticker deleted', ret);
 		}
 		if (option.searchTickers) {
 			let results;

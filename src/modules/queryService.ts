@@ -36,7 +36,7 @@ export function queryService(host: string, port: number, listening?: () => void)
 	}));
 
 	let server = app.listen(port, host, () => {
-		logger.info(`GraphQL server is listening on ${server.address().address}:${server.address().port}/graphql`);
+		logger.debug(`GraphQL server is listening on ${server.address().address}:${server.address().port}/graphql`);
 
 		if (listening) {
 			listening();

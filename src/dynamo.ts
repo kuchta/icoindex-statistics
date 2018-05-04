@@ -4,7 +4,7 @@ import uuidv4 from 'uuid/v4';
 import logger from './logger';
 import config from './config';
 // import { MyError } from './errors';
-import { Ticker } from './interfaces';
+// import { Ticker } from './interfaces';
 
 let client: DynamoDB | null = null;
 
@@ -55,6 +55,7 @@ export function insertTicker(exchange: string, pair: string, datetime: string, r
 	});
 }
 
+/* Not working for now */
 export function removeTicker(uuid: string) {
 	return new Promise((resolve, reject) => {
 		getClient().deleteItem({
@@ -74,6 +75,7 @@ export function removeTicker(uuid: string) {
 	});
 }
 
+/* We don't have permission for this operation */
 export function describeTable() {
 	return new Promise((resolve, reject) => {
 		getClient().describeTable({
@@ -88,6 +90,7 @@ export function describeTable() {
 	});
 }
 
+/* We Don't have permission for this operation*/
 export function updateTable() {
 	return new Promise((resolve, reject) => {
 		getClient().updateTable({

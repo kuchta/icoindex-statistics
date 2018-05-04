@@ -5,8 +5,7 @@ import { MyError } from '../errors';
 
 export const description = 'Ticker Management Utility';
 export const options: Option[] = [
-	{ option: '-D, --describe-table', description: 'describe table' },
-	// { option: '-D, --delete-index', description: 'delete index' },
+	// { option: '-D, --describe-table', description: 'describe table' },
 	{ option: '-I, --insert-ticker <pair datetime last>', description: 'insert ticker' },
 	{ option: '-R, --remove-ticker <id>', description: 'remove ticker' },
 	// { option: '-S, --search-tickers [pair datetime]', description: 'search tickers' },
@@ -14,14 +13,11 @@ export const options: Option[] = [
 
 export default async function main(option: {[key: string]: string}) {
 	try {
+		/* We don't have permission for this operation */
 		if (option.describeTable) {
 			let ret = await describeTable();
 			logger.info('describe table', ret);
 		}
-		// if (option.deleteIndex) {
-		// 	await deleteIndex();
-		// 	logger.info('index deleted');
-		// }
 		if (option.insertTicker) {
 			let args = option.insertTicker.split(' ');
 			if (args.length !== 3 || parseFloat(args[3]) === NaN) {
