@@ -4,9 +4,8 @@ import ccxt from 'ccxt';
 
 import logger from '../logger';
 import config from '../config';
-import { Option, Ticker } from '../interfaces';
+import { Option, Exchange, CCXTTickers, Ticker } from '../interfaces';
 import { sendTicker } from '../sqs';
-import { VersionIdMarker } from 'aws-sdk/clients/s3';
 
 const coinMarketCap = new ccxt.coinmarketcap();
 
@@ -16,31 +15,31 @@ export const options: Option[] = [
 ];
 
 export default function main(options: any) {
-	let observable = interval(config.EXCHANGE_INTERVAL).pipe(
-		flatMap(() => coinMarketCap.fetchTickers()),
-		flatMap((data) => Object.values(data)),
-		filter((ticker) => ticker.close !== undefined),
-		map((ticker) => ({ pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
-	);
 	if (options.print) {
-		fetchService(observable, { subscribe: (ticker) => {
+		fetchService({ subscribe: (ticker) => {
 			if (!(typeof options.print === 'string' && ticker.pair !== options.print)) {
 				// Object.keys(ticker).forEach(key => ticker[key] === undefined && delete ticker[key]);
 				logger.info('Received from exchange', ticker);
 			}
 		}});
 	} else {
-		fetchService(observable);
+		fetchService();
 	}
 }
 
-export function fetchService(observable: Observable<Ticker>, { subscribe, eventHandler, errorHandler, doneHandler }: {
-	subscribe?: (ticker: Ticker) => void,
-	eventHandler?: (ticker: Ticker) => void,
-	errorHandler?: (error: any) => void,
-	doneHandler?: () => void } = {}) {
+export function fetchService({ exchange = coinMarketCap, subscribe, eventHandler, errorHandler, doneHandler }: {
+		exchange?: Exchange,
+		subscribe?: (ticker: Ticker) => void,
+		eventHandler?: (ticker: Ticker) => void,
+		errorHandler?: (error: any) => void,
+		doneHandler?: () => void } = {}) {
 
-	return observable.subscribe(
+	return interval(config.EXCHANGE_INTERVAL).pipe(
+		flatMap(() => exchange.fetchTickers() as Promise<CCXTTickers>),
+		flatMap((data) => Object.values(data)),
+		filter((ticker) => ticker.close !== undefined),
+		map((ticker) => ({ exchange: exchange.id, pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
+	).subscribe(
 		subscribe ? (ticker) => subscribe(ticker) : (ticker) => {
 			sendTicker(ticker)
 			.then(() => eventHandler ? eventHandler(ticker) : () => logger.info1('Sucessfully sent to queue', ticker))

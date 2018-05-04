@@ -5,7 +5,7 @@ import { buildSchema, GraphQLSchema, GraphQLObjectType, GraphQLString } from 'gr
 
 import logger from '../logger';
 import config from '../config';
-import { Option, Ticker, TickerInput } from '../interfaces';
+import { Option, TickerInputs, TickerOutput } from '../interfaces';
 import { ping, getTicker } from '../elastic';
 import schema from '../../schema.gql';
 import { MyError } from '../errors';
@@ -27,12 +27,12 @@ export function queryService(host: string, port: number, listening?: () => void)
 		schema: buildSchema(schema),
 		rootValue: resolvers,
 		graphiql: true,
-		formatError: error => ({
+		formatError: (error) => ({
 			message: error.message,
 			locations: error.locations,
 			stack: error.stack ? error.stack.split('\n') : [],
 			path: error.path
-			})
+		})
 	}));
 
 	let server = app.listen(port, host, () => {
@@ -47,27 +47,36 @@ export function queryService(host: string, port: number, listening?: () => void)
 }
 
 const resolvers = {
-	getTokenPairRate: async (input: TickerInput) => {
-		return input.tickers.map(async (ticker) => {
+	getTokenPairRate: async (input: TickerInputs) => {
+		return input.tickers.map(async (ticker): Promise<TickerOutput> => {
+			if (ticker.exchange === undefined) {
+				ticker.exchange = 'coinmarketcap';
+			}
 			try {
 				let pair = ticker.pair.split('/');
 				if (pair.length !== 2) {
 					throw new MyError(`Invalid pair format supplied: "${ticker.pair}"`);
 				}
 				if (pair[1] === 'USD') {
-					return await getTicker(ticker.pair, ticker.datetime);
+					let ret = await getTicker(ticker.pair, ticker.datetime, ticker.exchange);
+					return { ...ret, datetime: [ ret.datetime ]};
 				} else {
-					let first = await getTicker(`${pair[0]}/USD`, ticker.datetime);
-					let second = await getTicker(`${pair[1]}/USD`, ticker.datetime);
+					let first = await getTicker(`${pair[0]}/USD`, ticker.datetime, ticker.exchange);
+					let second = await getTicker(`${pair[1]}/USD`, ticker.datetime, ticker.exchange);
 					return {
-							pair: ticker.pair,
-							datetime: second.datetime,
-							rate: first.rate / second.rate
+						exchange: ticker.exchange,
+						pair: ticker.pair,
+						datetime: [ first.datetime, second.datetime ],
+						rate: (first.rate && second.rate) ? first.rate / second.rate : null
 					};
 				}
 			} catch (error) {
-				logger.warning('getTokenPairRate error', error);
-				return ticker;
+				return {
+					exchange: ticker.exchange,
+					pair: ticker.pair,
+					datetime: [ ticker.datetime ],
+					rate: null
+				};
 			}
 		});
 	}

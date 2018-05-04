@@ -10,4 +10,3 @@ export default function main() {
 		logger.error('Purge queue failed', error);
 	});
 }
-

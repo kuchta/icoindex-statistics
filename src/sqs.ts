@@ -47,7 +47,7 @@ export function receiveTicker() {
 			if (error) {
 				reject(new MyError('SQS receiveMessage failed', { error }));
 			} else if (!data.Messages) {
-				reject(new MyError('SQS receiveMessage didn\'t contain Messages field', { object: data }));
+				reject(new MyError("SQS receiveMessage didn't contain Messages field", { object: data }));
 			} else if (data.Messages.length !== 1) {
 				reject(new MyError('SQS receiveMessage retuned Messages field of length != 1', { object: data.Messages }));
 			} else {

@@ -138,8 +138,8 @@ function logMessage(level: string, debug: boolean) {
 	};
 }
 
-function removeFirstLine(string: string) {
-	let lines = string.split('\n');
+function removeFirstLine(str: string) {
+	let lines = str.split('\n');
 	lines.splice(0, 1);
 	return lines.join('\n');
 }

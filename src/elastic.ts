@@ -7,7 +7,7 @@ import httpAWSES from 'http-aws-es';
 import logger, { MyLogger, LeveledLogMethod } from './logger';
 import config from './config';
 import { MyError } from './errors';
-import { Ticker } from './interfaces';
+import { Ticker, TickerOutput } from './interfaces';
 import { DescribeTrustedAdvisorCheckRefreshStatusesRequest } from 'aws-sdk/clients/support';
 
 class LogToMyLogger {
@@ -74,15 +74,21 @@ export function ping() {
 	});
 }
 
-export async function getTicker(pair: string, datetime: string) {
-	let tickers = await searchTickers({ pair, datetime });
+export async function getTicker(pair: string, datetime: string, exchange?: string) {
+	let tickers = await searchTickers({ pair, datetime, exchange });
 	if (!tickers || tickers.length < 1) {
 		throw new MyError('No tickers found');
 	}
-	return tickers[0]._source as Ticker;
+	return {
+		id: tickers[0]._id,
+		exchange: tickers[0]._source.exchange,
+		pair: tickers[0]._source.pair,
+		datetime: tickers[0]._source.datetime,
+		rate: tickers[0]._source.rate
+	} as Ticker;
 }
 
-export async function searchTickers({ query, pair, datetime }: { query?: object, pair?: string, datetime?: string } = {}) {
+export async function searchTickers({ query, pair, datetime, exchange }: { query?: any, pair?: string, datetime?: string, exchange?: string } = {}) {
 	if (pair && datetime) {
 		let dt;
 		if (datetime.toLowerCase() === 'now') {
@@ -105,7 +111,7 @@ export async function searchTickers({ query, pair, datetime }: { query?: object,
 								range: { datetime: { gte: startDateRange.toISOString(), lte: endDateRange.toISOString() }}
 							},
 							filter: {
-								term: { pair: pair }
+								term: { pair }
 							}
 						}
 					},
@@ -118,6 +124,9 @@ export async function searchTickers({ query, pair, datetime }: { query?: object,
 				}
 			}
 		};
+		if (exchange) {
+			query.query.function_score.query.bool.filter = [{ term: { pair }}, { term: { exchange }}];
+		}
 	} else if (!query) {
 		query = {
 			query: {
@@ -183,28 +192,28 @@ export async function deleteIndex() {
 	}
 }
 
-/* Not used, just for testing */
-export async function insertTicker(pair: string, datetime: string, rate: number) {
-	try {
-		return await getClient().index<Ticker>({
-			index: config.AWS_ELASTIC_INDEX,
-			type: config.AWS_ELASTIC_TYPE,
-			body: { pair, datetime, rate }
-		});
-	} catch (error) {
-		throw new MyError('ES index failed', { error });
-	}
-}
+// /* Not used, just for testing */
+// export async function insertTicker(pair: string, datetime: string, rate: number) {
+// 	try {
+// 		return await getClient().index<Ticker>({
+// 			index: config.AWS_ELASTIC_INDEX,
+// 			type: config.AWS_ELASTIC_TYPE,
+// 			body: { pair, datetime, rate }
+// 		});
+// 	} catch (error) {
+// 		throw new MyError('ES index failed', { error });
+// 	}
+// }
 
-/* Not used, just for testing */
-export async function removeTicker(id: string) {
-	try {
-		return await getClient().delete({
-			index: config.AWS_ELASTIC_INDEX,
-			type: config.AWS_ELASTIC_TYPE,
-			id: id
-		});
-	} catch (error) {
-		throw new MyError('ES delete failed', { error });
-	}
-}
+// /* Not used, just for testing */
+// export async function removeTicker(id: string) {
+// 	try {
+// 		return await getClient().delete({
+// 			index: config.AWS_ELASTIC_INDEX,
+// 			type: config.AWS_ELASTIC_TYPE,
+// 			id: id
+// 		});
+// 	} catch (error) {
+// 		throw new MyError('ES delete failed', { error });
+// 	}
+// }

@@ -7,7 +7,7 @@ export const description = 'Ticker Management Utility';
 export const options: Option[] = [
 	{ option: '-C, --create-index', description: 'create index' },
 	{ option: '-D, --delete-index', description: 'delete index' },
-	{ option: '-S, --search-tickers [pair datetime]', description: 'search tickers' },
+	{ option: '-S, --search-tickers [pair datetime [exchange]]', description: 'search tickers' },
 ];
 
 export default async function main(option: {[key: string]: string}) {
@@ -24,15 +24,21 @@ export default async function main(option: {[key: string]: string}) {
 			let results;
 			if (typeof option.searchTickers === 'string') {
 				let args = option.searchTickers.split(' ');
-				if (args.length !== 2) {
-					throw new MyError('Invalud number of arguments. Expected 2 arguments in double quotes');
+				if (args.length < 2 || args.length > 3) {
+					throw new MyError('Invalud number of arguments. Expected 2 or 3 arguments in double quotes');
 				}
-				results = await searchTickers({ pair: args[0], datetime: args[1] });
+				let query = { pair: args[0], datetime: args[1] };
+				if (args.length === 3) {
+					query['exchange'] = args[2];
+				}
+				results = await searchTickers(query);
 			} else {
 				results = await searchTickers();
 			}
 			if (results) {
 				logger.info('Results', results.map((data) => ({
+					id: data._id,
+					exchange: data._source.exchange,
 					pair: data._source.pair,
 					datetime: data._source.datetime,
 					rate: data._source.rate
