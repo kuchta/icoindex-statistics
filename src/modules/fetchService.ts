@@ -1,12 +1,11 @@
-import Rx from 'rxjs';
-import ccxt from 'ccxt';
+import { Subscription, Observable, interval, pipe } from 'rxjs';
+import { map, flatMap, filter, takeUntil } from 'rxjs/operators';
+import { coinmarketcap } from 'ccxt';
 
 import logger from '../logger';
 import config from '../config';
-import { Option, Ticker } from '../interfaces';
+import { Option, Exchange, CCXTTickers, Ticker } from '../interfaces';
 import { sendTicker } from '../sqs';
-
-const coinMarketCap = new ccxt.coinmarketcap();
 
 export const description = 'Fetch tickers from exchange';
 export const options: Option[] = [
@@ -14,24 +13,38 @@ export const options: Option[] = [
 ];
 
 export default function main(options: any) {
-	Rx.Observable.interval(config.EXCHANGE_INTERVAL)
-	.flatMap(() => coinMarketCap.fetchTickers())
-	.flatMap((data) => Object.values(data))
-	// .filter((data) => data.last ? false : true)
-	.map((ticker) => ({ pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
-	// .map((ticker) => ({ ...ticker, pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
-	.subscribe(
-		(ticker) => {
-			if ((typeof options.print === 'string' && ticker.pair === options.print) || (typeof options.print === 'boolean' && options.print)) {
-				Object.keys(ticker).forEach(key => ticker[key] === undefined && delete ticker[key]);
+	if (options.print) {
+		fetchService({ nextHandler: (ticker) => {
+			if (!(typeof options.print === 'string' && ticker.pair !== options.print)) {
+				// Object.keys(ticker).forEach(key => ticker[key] === undefined && delete ticker[key]);
 				logger.info('Received from exchange', ticker);
-			} else {
-				sendTicker(ticker)
-				.then(() => logger.info1('Sucessfully sent to queue', ticker))
-				.catch((error) => logger.error('Sending to queue failed', error));
 			}
+		}});
+	} else {
+		fetchService();
+	}
+}
+
+export function fetchService({ exchange = new coinmarketcap(), nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler }: {
+		exchange?: Exchange,
+		nextHandler?: (ticker: Ticker) => void,
+		nextThenHandler?: (ticker: Ticker) => void,
+		nextErrorHandler?: (error: any) => void,
+		errorHandler?: (error: any) => void,
+		completeHandler?: () => void } = {}) {
+
+	return interval(config.EXCHANGE_INTERVAL).pipe(
+		flatMap(() => exchange.fetchTickers() as Promise<CCXTTickers>),
+		flatMap((data) => Object.values(data)),
+		filter((ticker) => ticker.close !== undefined),
+		map((ticker) => ({ exchange: exchange.id, pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
+	).subscribe(
+		nextHandler ? (ticker) => nextHandler(ticker) : (ticker) => {
+			sendTicker(ticker)
+			.then(() => nextThenHandler ? nextThenHandler(ticker) : () => logger.info1('Sucessfully sent to queue', ticker))
+			.catch((error) => nextErrorHandler ? nextErrorHandler(error) : logger.error('Sending to queue failed', error));
 		},
-		(error) => logger.error('Error', error),
-		() => logger.info('Completed')
+		(error) => errorHandler ? errorHandler(error) : logger.error('Error', error),
+		() => completeHandler ? completeHandler() : logger.info('Completed')
 	);
 }

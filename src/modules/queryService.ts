@@ -1,12 +1,14 @@
-import { buildSchema, GraphQLSchema, GraphQLObjectType, GraphQLString } from 'graphql';
+import { Server } from 'http';
 import express from 'express';
 import graphqlHTTP from 'express-graphql';
+import { buildSchema, GraphQLSchema, GraphQLObjectType, GraphQLString } from 'graphql';
 
 import logger from '../logger';
 import config from '../config';
-import { Option, Ticker, TickerInput } from '../interfaces';
-import { ping, getTicker } from '../elasticsearch';
+import { Option, TickerInputs, TickerOutput } from '../interfaces';
+import { ping, getTicker } from '../elastic';
 import schema from '../../schema.gql';
+import { MyError } from '../errors';
 
 export const description = 'GraphQL Server';
 export const options: Option[] = [
@@ -15,53 +17,66 @@ export const options: Option[] = [
 ];
 
 export default function main(options: any) {
-	let host = options.host || config.GRAPHQL_HOST;
-	let port = options.port || config.GRAPHQL_PORT;
+	queryService(options.host || config.GRAPHQL_HOST, options.port || config.GRAPHQL_PORT, (address, port) => {
+		logger.info(`GraphQL server is listening on ${address}:${port}/graphql`);
+	});
+}
 
+export function queryService(host: string, port: number, listening?: (address: string, port: number) => void) {
 	let app = express();
 
 	app.use('/graphql', graphqlHTTP({
 		schema: buildSchema(schema),
 		rootValue: resolvers,
 		graphiql: true,
-		formatError: error => ({
+		formatError: (error) => ({
 			message: error.message,
 			locations: error.locations,
 			stack: error.stack ? error.stack.split('\n') : [],
 			path: error.path
-			})
+		})
 	}));
 
 	let server = app.listen(port, host, () => {
-		logger.info(`GraphQL server is listening on ${server.address().address}:${server.address().port}/graphql`);
+		if (listening) {
+			let address = server.address();
+			listening(address.address, address.port);
+		}
 	});
+
+	return server;
 }
 
 const resolvers = {
-	getTokenPairRate: async (input: TickerInput) => {
-		return input.tickers.map(async ticker => {
+	getTokenPairRate: async (input: TickerInputs) => {
+		return input.tickers.map(async ({ exchange, pair, datetime }): Promise<TickerOutput> => {
+			exchange = exchange || 'coinmarketcap';
+			const output: TickerOutput = {
+				exchange: exchange,
+				pair: pair,
+				datetime: [ datetime ],
+			};
 			try {
-				let pair = ticker.pair.split('/');
-				if (pair.length !== 2) {
-					logger.warning(`unknown pair format ${ticker.pair}`);
-					return ticker;
+				let tickers = pair.split('/');
+				if (tickers.length !== 2) {
+					throw new MyError(`Invalid pair format supplied: "${pair}"`);
 				}
-				if (pair[1] === 'USD') {
-					let ret = await getTicker(ticker.pair, ticker.datetime);
-					return ret;
+				if (tickers[1] === 'USD') {
+					let ret = await getTicker(pair, datetime, exchange);
+					output.datetime = [ ret.datetime ];
+					output.id = [ ret.id ];
+					output.rate = ret.rate;
 				} else {
-					let first = await getTicker(`${pair[0]}/USD`, ticker.datetime);
-					let second = await getTicker(`${pair[1]}/USD`, ticker.datetime);
-					logger.info1(`first: ${first}, second: ${second}`);
-					return {
-							pair: ticker.pair,
-							datetime: second.datetime,
-							rate: first.rate / second.rate
-					};
+					let first = await getTicker(`${tickers[0]}/USD`, datetime, exchange);
+					let second = await getTicker(`${tickers[1]}/USD`, datetime, exchange);
+					output.datetime = [ first.datetime, second.datetime ];
+					output.id = [ first.id, second.id ];
+					output.rate = first.rate / second.rate;
 				}
 			} catch (error) {
-				logger.warning('getTokenPairRate error', error);
-				return ticker;
+				logger.debug(error);
+			} finally {
+				return output;
 			}
 		});
 	}

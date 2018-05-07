@@ -4,7 +4,7 @@ import uuidv4 from 'uuid/v4';
 import logger from './logger';
 import config from './config';
 // import { MyError } from './errors';
-import { Ticker } from './interfaces';
+// import { Ticker } from './interfaces';
 
 let client: DynamoDB | null = null;
 
@@ -24,13 +24,16 @@ function getClient(): DynamoDB {
 	}
 }
 
-export function insertTicker(pair: string, datetime: string, rate: number) {
+export function insertTicker(exchange: string, pair: string, datetime: string, rate: number) {
 	return new Promise((resolve, reject) => {
 		getClient().putItem({
 			TableName: config.AWS_DYNAMO_TABLE,
 			Item: {
 				uuid: {
 					S: uuidv4() as string
+				},
+				exchange: {
+					S: exchange
 				},
 				pair: {
 					S: pair
@@ -52,15 +55,56 @@ export function insertTicker(pair: string, datetime: string, rate: number) {
 	});
 }
 
-export function removeTicker(id: string) {
+/* Not working for now */
+export function removeTicker(uuid: string) {
 	return new Promise((resolve, reject) => {
 		getClient().deleteItem({
 			TableName: config.AWS_DYNAMO_TABLE,
 			Key: {
 				uuid: {
-					S: id
+					S: uuid
 				}
 			}
+		}, (error, data) => {
+			if (error) {
+				reject(error);
+			} else {
+				resolve(data);
+			}
+		});
+	});
+}
+
+/* We don't have permission for this operation */
+export function describeTable() {
+	return new Promise((resolve, reject) => {
+		getClient().describeTable({
+			TableName: config.AWS_DYNAMO_TABLE
+		}, (error, data) => {
+			if (error) {
+				reject(error);
+			} else {
+				resolve(data);
+			}
+		});
+	});
+}
+
+/* We Don't have permission for this operation*/
+export function updateTable() {
+	return new Promise((resolve, reject) => {
+		getClient().updateTable({
+			TableName: config.AWS_DYNAMO_TABLE,
+			AttributeDefinitions: [{
+				AttributeName: 'pair',
+				AttributeType: 'S',
+			}, {
+				AttributeName: 'datetime',
+				AttributeType: 'S',
+			}, {
+				AttributeName: 'rate',
+				AttributeType: 'N',
+			}]
 		}, (error, data) => {
 			if (error) {
 				reject(error);

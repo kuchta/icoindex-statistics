@@ -47,7 +47,7 @@ export function receiveTicker() {
 			if (error) {
 				reject(new MyError('SQS receiveMessage failed', { error }));
 			} else if (!data.Messages) {
-				reject(new MyError('SQS receiveMessage didn\'t contain Messages field', { object: data }));
+				reject(new MyError("SQS receiveMessage didn't contain Messages field", { object: data }));
 			} else if (data.Messages.length !== 1) {
 				reject(new MyError('SQS receiveMessage retuned Messages field of length != 1', { object: data.Messages }));
 			} else {
@@ -97,9 +97,7 @@ export function purgeQueue() {
 		}, (error, data) => {
 			if (error) {
 				reject(new MyError('SQS purgeQueue => receiveMessage failed', { error }));
-			} else if (!data.Messages) {
-				reject(new MyError('SQS purgeQueue => receiveMessage didn\'t contain Messages field', { object: data }));
-			} else {
+			} else if (data.Messages) {
 				data.Messages.forEach((message) => {
 					if (!message.ReceiptHandle) {
 						reject(new MyError('SQS purgeQueue => receiveMessage didn\'t contain ReceiptHandle field', { object: message }));
