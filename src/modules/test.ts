@@ -1,4 +1,5 @@
-import test from 'tape';
+import R from 'ramda';
+import test, { Test } from 'tape';
 import { from } from 'rxjs';
 import ccxt from 'ccxt';
 import { GraphQLClient } from 'graphql-request';
@@ -12,8 +13,7 @@ import { fetchService } from './fetchService';
 import { storeService } from './storeService';
 import { queryService } from './queryService';
 
-import testFixtures from '../../testData/fixtures.json';
-import testQueries from '../../testData/queries.json';
+import testData from '../../testData/tickers.json';
 
 export const description = 'Test pipeline';
 export const options: Option[] = [
@@ -38,93 +38,102 @@ export default function main(options: any) {
 
 	config.MAX_DATETIME_PROXIMITY = '24 hours';
 
+	let fixtures = testData.fixtures.map((data) => ({ ...data, exchange: 'test' }));
+
+	let queries = testData.queries.map((data) => ({
+		query: { ...data.query, exchange: 'test' },
+		result: { ...data.result, exchange: 'test' }
+	}));
+
 	test('fetchService', (test) => {
-		let fsSubcription = fetchService({ exchange: new TestExchange(),
+		test.plan(fixtures.length);
+		let fsSubcription = fetchService({ exchange: createExchange(fixtures),
 			nextThenHandler: (ticker) => {
-				checkAndMarkTestingData(ticker, 'sentToQueue');
-				if (checkTestingData('sentToQueue')) {
+				checkAndMarkTestingData(test, fixtures, ticker, 'sentToQueue');
+				if (checkTestingData(fixtures, 'sentToQueue')) {
 					fsSubcription.unsubscribe();
-					test.pass('All tickers sent to queue');
 					test.end();
 				}
 			}, nextErrorHandler: (error) => {
 				test.fail(error);
-				test.end();
 			}, errorHandler(error) {
 				test.fail(error);
-				test.end();
 			}
 		});
 	});
 
 	test('storeService', (test) => {
+		test.plan(fixtures.length);
 		let ssSubcription = storeService({
 			nextThenHandler: (ticker) => {
-				checkAndMarkTestingData(ticker, 'sentToDB');
-				if (checkTestingData('sentToDB')) {
+				checkAndMarkTestingData(test, fixtures, ticker, 'sentToDB');
+				if (checkTestingData(fixtures, 'sentToDB')) {
 					ssSubcription.unsubscribe();
-					test.pass('All tickers sent do DB');
 					test.end();
 				}
 			}, nextErrorHandler: (error) => {
 				test.fail(error);
-				test.end();
 			}, errorHandler(error) {
 				test.fail(error);
-				test.end();
 			}
 		});
 	});
 
 	test('queryService', (test) => {
 		let server = queryService(host, port, () => {
-			test.pass('queryService started');
-
-			test.test('queries', (test) => {
-				const client = new GraphQLClient(`http://${host}:${port}/graphql`);
-				client.request<TickerOutputs>(query, { tickers: testQueries.map((data) => data.query) })
-				.then((data) => {
-					server.close();
-					let result = data.getTokenPairRate;
-					let expectedResult = testQueries.map((data) => data.result);
-					for (let i = 0; i < testQueries.length; i++) {
-						// compare(result[i], expectedResult[i]);
-						test.deepEqual(result[i], expectedResult[i]);
-					}
-					test.end();
-				}).catch((error) => {
-					server.close();
-					test.fail(error);
-					test.end();
-				});
+			test.plan(queries.length);
+			const client = new GraphQLClient(`http://${host}:${port}/graphql`);
+			client.request<TickerOutputs>(query, { tickers: R.map(R.prop('query'), queries) })
+			.then((data) => {
+				server.close();
+				let ticker = data.getTokenPairRate;
+				let expectedResult = R.map(R.prop('result'), queries);
+				for (let i = 0; i < queries.length; i++) {
+					test.same(ticker[i], expectedResult[i], `ticker pair=${ticker[i].pair}, datetime=${ticker[i].datetime}, rate=${ticker[i].rate}`);
+				}
+				test.end();
+			}).catch((error) => {
+				server.close();
+				test.fail(error);
 			});
-			test.end();
 		});
 	});
 }
 
-class TestExchange implements Exchange {
-	id = 'test';
-	async fetchTickers(): Promise<CCXTTickers> {
-		return testFixtures.reduce((data, value) => {
-			data[value.symbol] = value;
-			return data;
-		}, {});
+function createExchange(fixtures: TickerOutput[]) {
+	class TestExchange implements Exchange {
+		id = 'test';
+		async fetchTickers(): Promise<CCXTTickers> {
+			return fixtures.reduce((acc, ticker) => {
+				acc[ticker.pair] = {
+					symbol: ticker.pair,
+					datetime: ticker.datetime,
+					close: ticker.rate
+				};
+				return acc;
+			}, {});
+		}
 	}
+	return new TestExchange();
 }
 
-function checkAndMarkTestingData(ticker: Ticker, mark: string) {
-	let index = testFixtures.findIndex((data) => ticker.pair === data.symbol && ticker.datetime === ticker.datetime);
+let checkedIndexes = {
+	sentToQueue: [],
+	sentToDB: []
+};
+
+function checkAndMarkTestingData(test: Test, fixtures: TickerOutput[], ticker: Ticker, mark: string) {
+	let index = fixtures.findIndex((data) => ticker.pair === data.pair && ticker.datetime === ticker.datetime && ticker.rate === ticker.rate);
 	if (index < 0) {
 		logger.warning('checkAndMarkTestingData: not part of testing data', { object: ticker });
 	} else {
-		testFixtures[index][mark] = true;
+		test.same(fixtures[index], ticker, `ticker pair=${ticker.pair}, datetime=${ticker.datetime}, rate=${ticker.rate}`);
+		checkedIndexes[mark].push(index);
 	}
 }
 
-function checkTestingData(mark: string) {
-	let matches = testFixtures.filter((data) => data[mark] === true);
-	if (matches.length !== testFixtures.length) {
+function checkTestingData(fixtures: TickerOutput[], mark: string) {
+	if (checkedIndexes[mark].length < fixtures.length) {
 		return false;
 	}
 	return true;

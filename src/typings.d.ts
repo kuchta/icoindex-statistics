@@ -23,7 +23,7 @@ declare module '*/interfaces' {
 
 	/* My ticker */
 	export interface Ticker {
-		id?: string;
+		id: string;
 		exchange: string;
 		pair: string;
 		datetime: string;
@@ -67,11 +67,11 @@ declare module '*/interfaces' {
 	}
 
 	export interface TickerOutput {
-		id?: string;
 		exchange: string;
 		pair: string;
 		datetime: string[];
-		rate: number | null;
+		id?: string[];
+		rate?: number;
 	}
 }
 
@@ -91,14 +91,9 @@ declare module '*/schema.gql' {
 	export default content;
 }
 
-declare module '*/fixtures.json' {
-	import { CCXTTicker } from './interfaces';
-	const content: CCXTTicker[];
-	export default content;
-}
-
-declare module '*/queries.json' {
+declare module '*/testData/tickers.json' {
+	import { TickerOutput } from './interfaces';
 	import { TestQuery } from './interfaces';
-	const content: TestQuery[];
+	const content: { fixtures: TickerOutput[], queries: TestQuery[] };
 	export default content;
 }

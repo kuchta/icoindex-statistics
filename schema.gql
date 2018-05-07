@@ -10,10 +10,10 @@ input TickerInput {
 	datetime: Date!
 }
 type TickerOutput {
-	id: String
-	exchange: String
+	exchange: String!
 	pair: String!
 	datetime: [Date!]!
+	id: [String]
 	rate: Float
 }
 scalar Date

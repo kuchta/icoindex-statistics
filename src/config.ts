@@ -45,4 +45,4 @@ Object.keys(config).forEach((key) => {
 	}
 });
 
-export default config /*as Config*/;
+export default config;

@@ -17,10 +17,12 @@ export const options: Option[] = [
 ];
 
 export default function main(options: any) {
-	queryService(options.host || config.GRAPHQL_HOST, options.port || config.GRAPHQL_PORT);
+	queryService(options.host || config.GRAPHQL_HOST, options.port || config.GRAPHQL_PORT, (address, port) => {
+		logger.info(`GraphQL server is listening on ${address}:${port}/graphql`);
+	});
 }
 
-export function queryService(host: string, port: number, listening?: () => void) {
+export function queryService(host: string, port: number, listening?: (address: string, port: number) => void) {
 	let app = express();
 
 	app.use('/graphql', graphqlHTTP({
@@ -36,10 +38,9 @@ export function queryService(host: string, port: number, listening?: () => void)
 	}));
 
 	let server = app.listen(port, host, () => {
-		logger.debug(`GraphQL server is listening on ${server.address().address}:${server.address().port}/graphql`);
-
 		if (listening) {
-			listening();
+			let address = server.address();
+			listening(address.address, address.port);
 		}
 	});
 
@@ -48,35 +49,34 @@ export function queryService(host: string, port: number, listening?: () => void)
 
 const resolvers = {
 	getTokenPairRate: async (input: TickerInputs) => {
-		return input.tickers.map(async (ticker): Promise<TickerOutput> => {
-			if (ticker.exchange === undefined) {
-				ticker.exchange = 'coinmarketcap';
-			}
+		return input.tickers.map(async ({ exchange, pair, datetime }): Promise<TickerOutput> => {
+			exchange = exchange || 'coinmarketcap';
+			const output: TickerOutput = {
+				exchange: exchange,
+				pair: pair,
+				datetime: [ datetime ],
+			};
 			try {
-				let pair = ticker.pair.split('/');
-				if (pair.length !== 2) {
-					throw new MyError(`Invalid pair format supplied: "${ticker.pair}"`);
+				let tickers = pair.split('/');
+				if (tickers.length !== 2) {
+					throw new MyError(`Invalid pair format supplied: "${pair}"`);
 				}
-				if (pair[1] === 'USD') {
-					let ret = await getTicker(ticker.pair, ticker.datetime, ticker.exchange);
-					return { ...ret, datetime: [ ret.datetime ]};
+				if (tickers[1] === 'USD') {
+					let ret = await getTicker(pair, datetime, exchange);
+					output.datetime = [ ret.datetime ];
+					output.id = [ ret.id ];
+					output.rate = ret.rate;
 				} else {
-					let first = await getTicker(`${pair[0]}/USD`, ticker.datetime, ticker.exchange);
-					let second = await getTicker(`${pair[1]}/USD`, ticker.datetime, ticker.exchange);
-					return {
-						exchange: ticker.exchange,
-						pair: ticker.pair,
-						datetime: [ first.datetime, second.datetime ],
-						rate: (first.rate && second.rate) ? first.rate / second.rate : null
-					};
+					let first = await getTicker(`${tickers[0]}/USD`, datetime, exchange);
+					let second = await getTicker(`${tickers[1]}/USD`, datetime, exchange);
+					output.datetime = [ first.datetime, second.datetime ];
+					output.id = [ first.id, second.id ];
+					output.rate = first.rate / second.rate;
 				}
 			} catch (error) {
-				return {
-					exchange: ticker.exchange,
-					pair: ticker.pair,
-					datetime: [ ticker.datetime ],
-					rate: null
-				};
+				logger.debug(error);
+			} finally {
+				return output;
 			}
 		});
 	}

@@ -1,0 +1,48 @@
+{
+	"fixtures": [{
+		"pair": "ABC/USD",
+		"datetime": "2018-01-01T00:00Z",
+		"rate": 1
+		}, {
+		"pair": "BCD/USD",
+		"datetime": "2018-01-02T00:00Z",
+		"rate": 2
+		}, {
+		"pair": "CDE/USD",
+		"datetime": "2018-01-03T00:00Z",
+		"rate": 3
+	}],
+	"queries": [{
+		"query": {
+			"pair": "ABC/USD",
+			"datetime": "2018-01-02T00:00Z" },
+		"result": {
+			"pair": "ABC/USD",
+			"datetime": [ "2018-01-01T00:00Z" ],
+			"rate": 1 }
+		}, {
+		"query": {
+			"pair": "ABC/USD",
+			"datetime": "2018-01-02T00:01Z" },
+		"result": {
+			"pair": "ABC/USD",
+			"datetime": [ "2018-01-02T00:01Z" ],
+			"rate": null }
+		}, {
+		"query": {
+			"pair": "ABC/BCD",
+			"datetime": "2018-01-01T00:01Z" },
+		"result": {
+			"pair": "ABC/BCD",
+			"datetime": [ "2018-01-01T00:00Z", "2018-01-02T00:00Z" ],
+			"rate": 0.5 }
+		}, {
+		"query": {
+			"pair": "ABC/CDE",
+			"datetime": "2018-01-02T00:01Z" },
+		"result": {
+			"pair": "ABC/CDE",
+			"datetime": [ "2018-01-02T00:01Z" ],
+			"rate": null }
+	}]
+}
