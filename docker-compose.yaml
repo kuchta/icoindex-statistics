@@ -1,0 +1,47 @@
+version: '3'  # version of compose format
+
+services:
+  fetch-service:
+    build: .
+    command: node bin/index.js -v -d tickerFetchService
+    environment:
+    - NODE_ENV=${NODE_ENV}
+    - IS_AWS_REGION=${AWS_REGION}
+    - IS_AWS_ACCESS_ID=${AWS_ACCESS_ID}
+    - IS_AWS_SECRET_KEY=${AWS_SECRET_KEY}
+    - IS_AWS_SQS_QUEUE_URL=${AWS_SQS_QUEUE_URL}
+    - IS_AWS_SNS_TOPIC=${AWS_SNS_TOPIC}
+    - IS_EXCHANGE_INTERVAL=${EXCHANGE_INTERVAL}
+    restart: always
+
+  store-service:
+    build: .
+    command: node bin/index.js -v -d storeService
+    environment:
+    - NODE_ENV=${NODE_ENV}
+    - IS_AWS_REGION=${AWS_REGION}
+    - IS_AWS_ACCESS_ID=${AWS_ACCESS_ID}
+    - IS_AWS_SECRET_KEY=${AWS_SECRET_KEY}
+    - IS_AWS_SQS_QUEUE_URL=${AWS_SQS_QUEUE_URL}
+    - IS_AWS_DYNAMO_TABLE=${AWS_DYNAMO_TABLE}
+    - IS_DYNAMO_INTERVAL=${DYNAMO_INTERVAL}
+    restart: always
+
+  query-service:
+    build: .
+    command: node bin/index.js -v -d queryService
+    environment:
+    - NODE_ENV=${NODE_ENV}
+    - IS_AWS_REGION=${AWS_REGION}
+    - IS_AWS_ACCESS_ID=${AWS_ACCESS_ID}
+    - IS_AWS_SECRET_KEY=${AWS_SECRET_KEY}
+    - IS_AWS_ELASTIC_HOST=${AWS_ELASTIC_HOST}
+    - IS_AWS_ELASTIC_INDEX=${AWS_ELASTIC_INDEX}
+    - IS_AWS_ELASTIC_TYPE=${AWS_ELASTIC_TYPE}
+    - IS_GRAPHQL_HOST=${GRAPHQL_HOST}
+    - IS_GRAPHQL_PORT=${GRAPHQL_PORT}
+    - IS_MAX_DATETIME_PROXIMITY=${MAX_DATETIME_PROXIMITY}
+    ports:
+    - 8080:8080
+    restart: always
+
