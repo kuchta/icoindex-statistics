@@ -1,5 +1,5 @@
 import { Subscription, Observable, interval, pipe } from 'rxjs';
-import { map, flatMap, filter, takeUntil } from 'rxjs/operators';
+import { map, flatMap, filter, takeWhile } from 'rxjs/operators';
 import { coinmarketcap } from 'ccxt';
 
 import logger from '../logger';
@@ -13,6 +13,7 @@ export const options: Option[] = [
 ];
 
 export default function main(options: any) {
+	logger.info1('ahojda');
 	if (options.print) {
 		fetchService({ nextHandler: (ticker) => {
 			if (!(typeof options.print === 'string' && ticker.pair !== options.print)) {
@@ -25,23 +26,27 @@ export default function main(options: any) {
 	}
 }
 
-export function fetchService({ exchange = new coinmarketcap(), nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler }: {
+export function fetchService({ exchange = new coinmarketcap({ timeout: config.EXCHANGE_TIMEOUT }), nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler, takeWhilePredicate = () => true }: {
 		exchange?: Exchange,
 		nextHandler?: (ticker: Ticker) => void,
 		nextThenHandler?: (ticker: Ticker) => void,
 		nextErrorHandler?: (error: any) => void,
 		errorHandler?: (error: any) => void,
-		completeHandler?: () => void } = {}) {
+		completeHandler?: () => void,
+		takeWhilePredicate?: (value: any) => boolean } = {} ) {
 
-	return interval(config.EXCHANGE_INTERVAL).pipe(
+	let observable = interval(config.EXCHANGE_INTERVAL).pipe(
+		takeWhile(takeWhilePredicate),
 		flatMap(() => exchange.fetchTickers() as Promise<CCXTTickers>),
 		flatMap((data) => Object.values(data)),
-		filter((ticker) => ticker.close !== undefined),
+		filter((ticker) => ticker && ticker.close !== undefined),
 		map((ticker) => ({ exchange: exchange.id, pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
-	).subscribe(
+	);
+
+	return observable.subscribe(
 		nextHandler ? (ticker) => nextHandler(ticker) : (ticker) => {
 			sendTicker(ticker)
-			.then(() => nextThenHandler ? nextThenHandler(ticker) : () => logger.info1('Sucessfully sent to queue', ticker))
+			.then(() => nextThenHandler ? nextThenHandler(ticker) : logger.info1('Sucessfully sent to queue', ticker))
 			.catch((error) => nextErrorHandler ? nextErrorHandler(error) : logger.error('Sending to queue failed', error));
 		},
 		(error) => errorHandler ? errorHandler(error) : logger.error('Error', error),

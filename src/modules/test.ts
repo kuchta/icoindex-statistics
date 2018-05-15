@@ -36,6 +36,8 @@ export default function main(options: any) {
 	let port = options.port || 12345;
 	// let port = 12345;
 
+	config.EXCHANGE_INTERVAL = 1000;
+	config.DYNAMO_INTERVAL = 1000;
 	config.MAX_DATETIME_PROXIMITY = '24 hours';
 
 	let fixtures = testData.fixtures.map((data) => ({ ...data, exchange: 'test' }));
@@ -48,40 +50,28 @@ export default function main(options: any) {
 	test('fetchService', (test) => {
 		test.plan(fixtures.length);
 		let fsSubcription = fetchService({ exchange: createExchange(fixtures),
-			nextThenHandler: (ticker) => {
-				checkAndMarkTestingData(test, fixtures, ticker, 'sentToQueue');
-				if (checkTestingData(fixtures, 'sentToQueue')) {
-					fsSubcription.unsubscribe();
-					test.end();
-				}
-			}, nextErrorHandler: (error) => {
-				test.fail(error);
-			}, errorHandler(error) {
-				test.fail(error);
-			}
+			nextThenHandler: (ticker) => checkAndMarkData(test, fixtures, ticker, 'sentToQueue'),
+			nextErrorHandler: (error) => test.fail(error),
+			errorHandler: (error) => test.fail(error),
+			takeWhilePredicate: () => !allDataPassed(fixtures, 'sentToQueue'),
+			completeHandler: () => test.end()
 		});
 	});
 
 	test('storeService', (test) => {
 		test.plan(fixtures.length);
 		let ssSubcription = storeService({
-			nextThenHandler: (ticker) => {
-				checkAndMarkTestingData(test, fixtures, ticker, 'sentToDB');
-				if (checkTestingData(fixtures, 'sentToDB')) {
-					ssSubcription.unsubscribe();
-					test.end();
-				}
-			}, nextErrorHandler: (error) => {
-				test.fail(error);
-			}, errorHandler(error) {
-				test.fail(error);
-			}
+			nextThenHandler: (ticker) => checkAndMarkData(test, fixtures, ticker, 'sentToDB'),
+			nextErrorHandler: (error) => test.fail(error),
+			errorHandler: (error) => test.fail(error),
+			takeWhilePredicate: () => !allDataPassed(fixtures, 'sentToDB'),
+			completeHandler: () => test.end()
 		});
 	});
 
 	test('queryService', (test) => {
+		test.plan(queries.length);
 		let server = queryService(host, port, () => {
-			test.plan(queries.length);
 			const client = new GraphQLClient(`http://${host}:${port}/graphql`);
 			client.request<TickerOutputs>(query, { tickers: R.map(R.prop('query'), queries) })
 			.then((data) => {
@@ -122,19 +112,14 @@ let checkedIndexes = {
 	sentToDB: []
 };
 
-function checkAndMarkTestingData(test: Test, fixtures: TickerOutput[], ticker: Ticker, mark: string) {
+function checkAndMarkData(test: Test, fixtures: TickerOutput[], ticker: Ticker, mark: string) {
 	let index = fixtures.findIndex((data) => ticker.pair === data.pair && ticker.datetime === ticker.datetime && ticker.rate === ticker.rate);
-	if (index < 0) {
-		logger.warning('checkAndMarkTestingData: not part of testing data', { object: ticker });
-	} else {
-		test.same(fixtures[index], ticker, `ticker pair=${ticker.pair}, datetime=${ticker.datetime}, rate=${ticker.rate}`);
+	if (index >= 0) {
+		test.same(ticker, fixtures[index], `ticker pair=${ticker.pair}, datetime=${ticker.datetime}, rate=${ticker.rate}`);
 		checkedIndexes[mark].push(index);
 	}
 }
 
-function checkTestingData(fixtures: TickerOutput[], mark: string) {
-	if (checkedIndexes[mark].length < fixtures.length) {
-		return false;
-	}
-	return true;
+function allDataPassed(fixtures: TickerOutput[], mark: string) {
+	return checkedIndexes[mark].length < fixtures.length ? false : true;
 }

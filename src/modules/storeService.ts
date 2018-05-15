@@ -1,5 +1,5 @@
 import { Subscription, interval, pipe } from 'rxjs';
-import { flatMap, filter } from 'rxjs/operators';
+import { flatMap, filter, takeWhile } from 'rxjs/operators';
 
 import logger from '../logger';
 import config from '../config';
@@ -25,21 +25,25 @@ export default function main(options: any) {
 	}
 }
 
-export function storeService({ fetch = receiveTicker, nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler }: {
+export function storeService({ fetch = receiveTicker, nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler, takeWhilePredicate = () => true }: {
 		fetch?: () => Promise<Ticker>,
 		nextHandler?: (ticker: Ticker) => void,
 		nextThenHandler?: (ticker: Ticker) => void,
 		nextErrorHandler?: (error: any) => void,
 		errorHandler?: (error: any) => void,
-		completeHandler?: () => void } = {}) {
+		completeHandler?: () => void,
+		takeWhilePredicate?: (value: any) => boolean } = {} ) {
 
-	return interval(config.DYNAMO_INTERVAL).pipe(
+	let observable = interval(config.DYNAMO_INTERVAL).pipe(
+		takeWhile(takeWhilePredicate),
 		flatMap(() => fetch()),
-		filter((ticker) => ticker.rate !== undefined),
-	).subscribe(
+		filter((ticker) => ticker !== undefined && ticker.rate !== undefined),
+	);
+
+	return observable.subscribe(
 		nextHandler ? (ticker) => nextHandler(ticker) : (ticker) => {
 			insertTicker(ticker.exchange, ticker.pair, ticker.datetime, ticker.rate)
-			.then(() => nextThenHandler ? nextThenHandler(ticker) : () => logger.info1('Succesfully sent to database', ticker))
+			.then(() => nextThenHandler ? nextThenHandler(ticker) : logger.info1('Succesfully sent to database', ticker))
 			.catch((error) => nextErrorHandler ? nextErrorHandler(error) : logger.error('Sending to database failed', error));
 		},
 		(error) => errorHandler ? errorHandler(error) : logger.error('Error', error),

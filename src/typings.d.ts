@@ -13,6 +13,7 @@ declare module '*/interfaces' {
 		GRAPHQL_PORT: number;
 		DYNAMO_INTERVAL: number;
 		EXCHANGE_INTERVAL: number;
+		EXCHANGE_TIMEOUT: number;
 		MAX_DATETIME_PROXIMITY: string;
 	}
 
@@ -23,7 +24,7 @@ declare module '*/interfaces' {
 
 	/* My ticker */
 	export interface Ticker {
-		id: string;
+		uuid: string;
 		exchange: string;
 		pair: string;
 		datetime: string;

@@ -1,4 +1,5 @@
 import { Server } from 'http';
+import { AddressInfo } from 'net';
 import express from 'express';
 import graphqlHTTP from 'express-graphql';
 import { buildSchema, GraphQLSchema, GraphQLObjectType, GraphQLString } from 'graphql';
@@ -39,7 +40,7 @@ export function queryService(host: string, port: number, listening?: (address: s
 
 	let server = app.listen(port, host, () => {
 		if (listening) {
-			let address = server.address();
+			let address = server.address() as AddressInfo;
 			listening(address.address, address.port);
 		}
 	});
@@ -64,13 +65,13 @@ const resolvers = {
 				if (tickers[1] === 'USD') {
 					let ret = await getTicker(pair, datetime, exchange);
 					output.datetime = [ ret.datetime ];
-					output.id = [ ret.id ];
+					output.id = [ ret.uuid ];
 					output.rate = ret.rate;
 				} else {
 					let first = await getTicker(`${tickers[0]}/USD`, datetime, exchange);
 					let second = await getTicker(`${tickers[1]}/USD`, datetime, exchange);
 					output.datetime = [ first.datetime, second.datetime ];
-					output.id = [ first.id, second.id ];
+					output.id = [ first.uuid, second.uuid ];
 					output.rate = first.rate / second.rate;
 				}
 			} catch (error) {
