@@ -80,7 +80,7 @@ export async function getTicker(pair: string, datetime: string, exchange?: strin
 		throw new MyError('No tickers found');
 	}
 	return {
-		id: tickers[0]._id,
+		uuid: tickers[0]._source.uuid,
 		exchange: tickers[0]._source.exchange,
 		pair: tickers[0]._source.pair,
 		datetime: tickers[0]._source.datetime,

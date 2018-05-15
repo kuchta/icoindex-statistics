@@ -1,14 +1,18 @@
 import logger from '../logger';
 import { Option } from '../interfaces';
-import { createIndex, deleteIndex, searchTickers, removeTicker } from '../elastic';
+import { purgeQueue } from '../sqs';
+import { insertTicker, removeTicker } from '../dynamo';
+import { createIndex, deleteIndex, searchTickers } from '../elastic';
 import { MyError } from '../errors';
 
 export const description = 'Ticker Management Utility';
 export const options: Option[] = [
-	{ option: '-C, --create-index', description: 'create index' },
-	{ option: '-D, --delete-index', description: 'delete index' },
-	{ option: '-R, --remove-ticker <id>', description: 'remove ticker' },
-	{ option: '-S, --search-tickers [pair datetime [exchange]]', description: 'search tickers' },
+	{ option: '-C, --create-index', description: 'create elastic index' },
+	{ option: '-D, --delete-index', description: 'delete elastic index' },
+	{ option: '-P, --purge-queue', description: 'purge SQS queue' },
+	{ option: '-I, --insert-ticker <pair datetime last>', description: 'insert ticker into dynamo' },
+	{ option: '-R, --remove-ticker <id>', description: 'remove ticker from dynamo' },
+	{ option: '-S, --search-tickers [pair datetime [exchange]]', description: 'search tickers in elastic' },
 ];
 
 export default async function main(option: {[key: string]: string}) {
@@ -20,6 +24,18 @@ export default async function main(option: {[key: string]: string}) {
 		if (option.deleteIndex) {
 			await deleteIndex();
 			logger.info('index deleted');
+		}
+		if (option.purgeQueue) {
+			await purgeQueue();
+			logger.info('queue purged');
+		}
+		if (option.insertTicker) {
+			let args = option.insertTicker.split(' ');
+			if (args.length !== 3 || parseFloat(args[3]) === NaN) {
+				throw new MyError('Invalud number of arguments. Expected 3 arguments in double quotes');
+			}
+			let ret = await insertTicker('coinmarketcap', args[0], args[1], parseFloat(args[2]));
+			logger.info('ticker inserted', ret);
 		}
 		if (option.removeTicker) {
 			logger.info(`Removing ticker: "${option.removeTicker}"`);
@@ -43,7 +59,7 @@ export default async function main(option: {[key: string]: string}) {
 			}
 			if (results) {
 				logger.info('Results', results.map((data) => ({
-					id: data._id,
+					id: data._source.uuid,
 					exchange: data._source.exchange,
 					pair: data._source.pair,
 					datetime: data._source.datetime,
