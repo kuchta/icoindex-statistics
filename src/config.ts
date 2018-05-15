@@ -5,13 +5,13 @@ import config from '../config.json';
 Object.entries(config).forEach(([key, value]) => {
 	Object.defineProperty(config, key, {
 		get: getter(key, value),
-		set: (value) => {
-			if (typeof config[key] === 'number') {
-				value = parseInt(value);
+		set: (val) => {
+			if (typeof value === 'number') {
+				val = parseInt(val);
 			}
-			logger.debug(`Setting config: ${key}: ${format(value)}`);
+			logger.debug(`Setting config: ${key}: ${format(val)}`);
 			Object.defineProperty(config, key, {
-				get: getter(key, value)
+				get: getter(key, val)
 			});
 		}
 	});
@@ -20,14 +20,12 @@ Object.entries(config).forEach(([key, value]) => {
 function getter(key: string, value: any) {
 	let rep = 5; // This is actually just 3 times, because cli parser takes every config item 2 times
 	return () => {
+		logger.debug(`Getting config: ${key}: ${format(value)}...`);
 		if (--rep <= 0) {
-			logger.debug(`Getting config: ${key}: ${format(value)}...`);
 			Object.defineProperty(config, key, {
 				value: value,
 				writable: true
 			});
-		} else {
-			logger.debug(`Getting config: ${key}: ${format(value)}`);
 		}
 		return value;
 	};
