@@ -2,6 +2,7 @@
 	"AWS_REGION": "eu-west-1",
 	"AWS_ACCESS_ID": "AKIAJSTW7COGSQWQE4GQ",
 	"AWS_SECRET_KEY": "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",
+	"AWS_SNS_TOPIC": "arn:aws:sns:eu-west-1:234333348657:icoindex-staging-event-add-coin-trading-item",
 	"AWS_SQS_QUEUE_URL": "https://sqs.eu-west-1.amazonaws.com/234333348657/icoindex-staging-queue-coin-trading",
 	"AWS_DYNAMO_TABLE": "icoindexstaging.cointradinghistory",
 	"AWS_ELASTIC_HOST": "search-icoindex-staging-gywi2nq266suyvyjfux67mhf44.eu-west-1.es.amazonaws.com",
@@ -12,5 +13,6 @@
 	"DYNAMO_INTERVAL": 100,
 	"EXCHANGE_INTERVAL": 300000,
 	"EXCHANGE_TIMEOUT": 60000,
-	"MAX_DATETIME_PROXIMITY": "24 hours"
+	"MAX_DATETIME_PROXIMITY": "24 hours",
+	"ETHEREUM_URL": "http://localhost:8545"
 }

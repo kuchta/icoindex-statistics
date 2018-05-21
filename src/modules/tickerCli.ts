@@ -1,5 +1,6 @@
 import logger from '../logger';
 import { Option } from '../interfaces';
+import { sendTicker } from '../sns';
 import { purgeQueue } from '../sqs';
 import { insertTicker, removeTicker } from '../dynamo';
 import { createIndex, deleteIndex, searchTickers } from '../elastic';
@@ -10,7 +11,7 @@ export const options: Option[] = [
 	{ option: '-C, --create-index', description: 'create elastic index' },
 	{ option: '-D, --delete-index', description: 'delete elastic index' },
 	{ option: '-P, --purge-queue', description: 'purge SQS queue' },
-	{ option: '-I, --insert-ticker <pair datetime last>', description: 'insert ticker into dynamo' },
+	{ option: '-I, --insert-ticker <pair datetime last>', description: 'send ticker through SNS' },
 	{ option: '-R, --remove-ticker <id>', description: 'remove ticker from dynamo' },
 	{ option: '-S, --search-tickers [pair datetime [exchange]]', description: 'search tickers in elastic' },
 ];
@@ -34,7 +35,7 @@ export default async function main(option: {[key: string]: string}) {
 			if (args.length !== 3 || parseFloat(args[3]) === NaN) {
 				throw new MyError('Invalud number of arguments. Expected 3 arguments in double quotes');
 			}
-			let ret = await insertTicker('coinmarketcap', args[0], args[1], parseFloat(args[2]));
+			let ret = await sendTicker('coinmarketcap', args[0], args[1], parseFloat(args[2]));
 			logger.info('ticker inserted', ret);
 		}
 		if (option.removeTicker) {

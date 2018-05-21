@@ -23,111 +23,67 @@ function getClient(): SQS {
 	}
 }
 
-export function sendTicker(ticker: Ticker) {
-	return new Promise<SQS.SendMessageResult>((resolve, reject) => {
-		getClient().sendMessage({
-			QueueUrl: config.AWS_SQS_QUEUE_URL,
-			DelaySeconds: 0,
-			MessageBody: JSON.stringify(ticker)
-		}, (error, data) => {
-			if (error) {
-				reject(new MyError('SQS sendMessage failed', { error }));
-			} else {
-				resolve(data);
-			}
-		});
-	});
-}
+/* Not used - tickers are sent through SNS */
+// export function sendTicker(exchange: string, pair: string, datetime: string, rate: number) {
+// 	return new Promise<SQS.SendMessageResult>((resolve, reject) => {
+// 		getClient().sendMessage({
+// 			QueueUrl: config.AWS_SQS_QUEUE_URL,
+// 			DelaySeconds: 0,
+// 			MessageBody: JSON.stringify({ exchange, pair, datetime, rate })
+// 		}, (error, data) => {
+// 			if (error) {
+// 				reject(new MyError('SQS sendMessage failed', { error }));
+// 			} else {
+// 				resolve(data);
+// 			}
+// 		});
+// 	});
+// }
 
-export function receiveTicker() {
-	return new Promise<Ticker>((resolve, reject) => {
-		getClient().receiveMessage({
-			QueueUrl: config.AWS_SQS_QUEUE_URL,
-		}, (error, data) => {
-			if (error) {
-				reject(new MyError('SQS receiveMessage failed', { error }));
-			} else if (!data.Messages) {
-				resolve();
-				// reject(new MyError("SQS receiveMessage didn't contain Messages field", { object: data }));
-			} else if (data.Messages.length !== 1) {
-				reject(new MyError('SQS receiveMessage retuned Messages field of length != 1', { object: data.Messages }));
-			} else {
-				let message = data.Messages[0];
-				if (!message.ReceiptHandle) {
-					reject(new MyError('SQS receiveMessage didn\'t contain Messages[0].ReceiptHandle field', { object: message }));
-				} else {
-					getClient().deleteMessage({
-						QueueUrl: config.AWS_SQS_QUEUE_URL,
-						ReceiptHandle: message.ReceiptHandle
-					}, (error) => {
-						if (error) {
-							reject(new MyError('SQS receiveMessage => deleteMessage failed', { error }));
-						} else if (!message.Body) {
-							reject(new MyError('SQS receiveMessage didn\'t contain Body field', { object: message }));
-						} else {
-							resolve(JSON.parse(message.Body));
+export async function receiveTicker() {
+	try {
+		while (true) {
+			let data = await getClient().receiveMessage({ QueueUrl: config.AWS_SQS_QUEUE_URL }).promise();
+
+			if (!data.Messages) {
+				continue;
+			}
+
+			for (let message of data.Messages) {
+				if (message.Body) {
+					let body = JSON.parse(message.Body);
+					if (body && body.TopicArn === config.AWS_SNS_TOPIC) {
+						if (message.ReceiptHandle) {
+							await deleteMessage(message.ReceiptHandle);
 						}
-					});
+						let ticker = JSON.parse(body.Message);
+						return ticker as Ticker;
+					}
 				}
 			}
-		});
-	});
+		}
+	} catch (error) {
+		throw new MyError('SQS receiveMessage failed', { error });
+	}
 }
 
-export function deleteMessage(handle: string) {
-	return new Promise((resolve, reject) => {
-		getClient().deleteMessage({
+export async function deleteMessage(handle: string) {
+	try {
+		await getClient().deleteMessage({
 			QueueUrl: config.AWS_SQS_QUEUE_URL,
 			ReceiptHandle: handle
-		}, (error) => {
-			if (error) {
-				reject(new MyError('SQS deleteMessage failed', { error }));
-			} else {
-				resolve();
-			}
-		});
-	});
+		}).promise();
+	} catch (error) {
+		throw new MyError('SQS deleteMessage failed', { error });
+	}
 }
 
-export function purgeQueue() {
-	// @ts-ignore: 'resolve' is declared but its value is never read.
-	return new Promise((resolve, reject) => {
-		getClient().purgeQueue({
+export async function purgeQueue() {
+	try {
+		await getClient().purgeQueue({
 			QueueUrl: config.AWS_SQS_QUEUE_URL,
-		}, (error) => {
-			if (error) {
-				reject(error);
-			} else {
-				resolve();
-			}
-		});
-
-		// getClient().receiveMessage({
-		// 	QueueUrl: config.AWS_SQS_QUEUE_URL,
-		// 	MaxNumberOfMessages: 10
-		// }, (error, data) => {
-		// 	if (error) {
-		// 		reject(new MyError('SQS purgeQueue => receiveMessage failed', { error }));
-		// 	} else if (data.Messages) {
-		// 		data.Messages.forEach((message) => {
-		// 			if (!message.ReceiptHandle) {
-		// 				reject(new MyError('SQS purgeQueue => receiveMessage didn\'t contain ReceiptHandle field', { object: message }));
-		// 			} else {
-		// 				getClient().deleteMessage({
-		// 					QueueUrl: config.AWS_SQS_QUEUE_URL,
-		// 					ReceiptHandle: message.ReceiptHandle
-		// 				}, (error) => {
-		// 					if (error) {
-		// 						reject(new MyError('SQS purgeQueue => deleteMessage failed', { error }));
-		// 					} else {
-		// 						process.stdout.write('.');
-		// 					}
-		// 				});
-		// 			}
-		// 		});
-		// 		purgeQueue();
-		// 	}
-		// });
-	});
-
+		}).promise();
+	} catch (error) {
+		throw new MyError('SQS purgeQueue failed', { error });
+	}
 }

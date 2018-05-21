@@ -4,6 +4,7 @@ declare module '*/interfaces' {
 		AWS_REGION: string;
 		AWS_ACCESS_ID: string;
 		AWS_SECRET_KEY: string;
+		AWS_SNS_TOPIC: string;
 		AWS_SQS_QUEUE_URL: string;
 		AWS_DYNAMO_TABLE: string;
 		AWS_ELASTIC_HOST: string;
@@ -15,6 +16,7 @@ declare module '*/interfaces' {
 		EXCHANGE_INTERVAL: number;
 		EXCHANGE_TIMEOUT: number;
 		MAX_DATETIME_PROXIMITY: string;
+		ETHEREUM_URL: string;
 	}
 
 	export type Option = {

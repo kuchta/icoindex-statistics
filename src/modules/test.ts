@@ -17,8 +17,8 @@ import testData from '../../testData/tickers.json';
 
 export const description = 'Test pipeline';
 export const options: Option[] = [
-	{ option: '-H, --host <host>', description: 'bind to this host' },
-	{ option: '-p, --port <port>', description: 'bind to this port' },
+	{ option: '-H, --host <host>', description: 'bind GraphQL service to this host' },
+	{ option: '-p, --port <port>', description: 'bind GraphQL service to this port' },
 ];
 
 const query = `query MyQuery($tickers: [TickerInput]) {
@@ -108,18 +108,18 @@ function createExchange(fixtures: TickerOutput[]) {
 }
 
 let checkedIndexes = {
-	sentToQueue: [],
-	sentToDB: []
+	sentToQueue: new Set(),
+	sentToDB: new Set(),
 };
 
 function checkAndMarkData(test: Test, fixtures: TickerOutput[], ticker: Ticker, mark: string) {
-	let index = fixtures.findIndex((data) => ticker.pair === data.pair && ticker.datetime === ticker.datetime && ticker.rate === ticker.rate);
+	let index = fixtures.findIndex((data) => ticker.exchange === 'test' && ticker.pair === data.pair && ticker.datetime === ticker.datetime && ticker.rate === ticker.rate);
 	if (index >= 0) {
 		test.same(ticker, fixtures[index], `ticker pair=${ticker.pair}, datetime=${ticker.datetime}, rate=${ticker.rate}`);
-		checkedIndexes[mark].push(index);
+		checkedIndexes[mark].add(index);
 	}
 }
 
 function allDataPassed(fixtures: TickerOutput[], mark: string) {
-	return checkedIndexes[mark].length < fixtures.length ? false : true;
+	return checkedIndexes[mark].size >= fixtures.length ? true : false;
 }

@@ -5,7 +5,7 @@ import { coinmarketcap } from 'ccxt';
 import logger from '../logger';
 import config from '../config';
 import { Option, Exchange, CCXTTickers, Ticker } from '../interfaces';
-import { sendTicker } from '../sqs';
+import { sendTicker } from '../sns';
 
 export const description = 'Fetch tickers from exchange';
 export const options: Option[] = [
@@ -13,7 +13,6 @@ export const options: Option[] = [
 ];
 
 export default function main(options: any) {
-	logger.info1('ahojda');
 	if (options.print) {
 		fetchService({ nextHandler: (ticker) => {
 			if (!(typeof options.print === 'string' && ticker.pair !== options.print)) {
@@ -45,9 +44,9 @@ export function fetchService({ exchange = new coinmarketcap({ timeout: config.EX
 
 	return observable.subscribe(
 		nextHandler ? (ticker) => nextHandler(ticker) : (ticker) => {
-			sendTicker(ticker)
-			.then(() => nextThenHandler ? nextThenHandler(ticker) : logger.info1('Sucessfully sent to queue', ticker))
-			.catch((error) => nextErrorHandler ? nextErrorHandler(error) : logger.error('Sending to queue failed', error));
+			sendTicker(ticker.exchange, ticker.pair, ticker.datetime, ticker.rate)
+			.then(() => nextThenHandler ? nextThenHandler(ticker) : logger.info1('Sucessfully sent to SNS', ticker))
+			.catch((error) => nextErrorHandler ? nextErrorHandler(error) : logger.error('Sending to SNS failed', error));
 		},
 		(error) => errorHandler ? errorHandler(error) : logger.error('Error', error),
 		() => completeHandler ? completeHandler() : logger.info('Completed')
