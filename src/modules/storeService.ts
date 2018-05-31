@@ -3,21 +3,20 @@ import { flatMap, filter, takeWhile } from 'rxjs/operators';
 
 import logger from '../logger';
 import config from '../config';
-import { Option, Ticker } from '../interfaces';
-import { receiveTicker } from '../sqs';
-import { insertTicker } from '../dynamo';
+import { Option } from '../interfaces';
+import { receiveMessage } from '../sqs';
+import { putItem } from '../dynamo';
 
 export const description = 'Push tickers to database';
 export const options: Option[] = [
-	{ option: '-p, --print [pair]', description: 'Dont\'t save, just print' }
+	{ option: '-p, --print', description: 'Dont\'t save, just print' }
 ];
 
 export default function main(options: any) {
 	if (options.print) {
-		storeService({ nextHandler: (ticker) => {
-			if (!(typeof options.print === 'string' && ticker.pair !== options.print)) {
-				// Object.keys(ticker).forEach(key => ticker[key] === undefined && delete ticker[key]);
-				logger.info('Received from queue', ticker);
+		storeService({ nextHandler: (item) => {
+			if (options.print) {
+				logger.info('Received from queue', item);
 			}
 		}});
 	} else {
@@ -25,10 +24,10 @@ export default function main(options: any) {
 	}
 }
 
-export function storeService({ fetch = receiveTicker, nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler, takeWhilePredicate = () => true }: {
-		fetch?: () => Promise<Ticker>,
-		nextHandler?: (ticker: Ticker) => void,
-		nextThenHandler?: (ticker: Ticker) => void,
+export function storeService({ fetch = receiveMessage, nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler, takeWhilePredicate = () => true }: {
+		fetch?: () => Promise<any>,
+		nextHandler?: (item: any) => void,
+		nextThenHandler?: (item: any) => void,
 		nextErrorHandler?: (error: any) => void,
 		errorHandler?: (error: any) => void,
 		completeHandler?: () => void,
@@ -37,13 +36,12 @@ export function storeService({ fetch = receiveTicker, nextHandler, nextThenHandl
 	let observable = interval(config.DYNAMO_INTERVAL).pipe(
 		takeWhile(takeWhilePredicate),
 		flatMap(() => fetch()),
-		filter((ticker) => ticker !== undefined && ticker.rate !== undefined),
 	);
 
 	return observable.subscribe(
-		nextHandler ? (ticker) => nextHandler(ticker) : (ticker) => {
-			insertTicker(ticker.exchange, ticker.pair, ticker.datetime, ticker.rate)
-			.then(() => nextThenHandler ? nextThenHandler(ticker) : logger.info1('Succesfully sent to database', ticker))
+		nextHandler ? (item) => nextHandler(item) : (item) => {
+			putItem(item)
+			.then(() => nextThenHandler ? nextThenHandler(item) : logger.info1('Succesfully sent to database', item))
 			.catch((error) => nextErrorHandler ? nextErrorHandler(error) : logger.error('Sending to database failed', error));
 		},
 		(error) => errorHandler ? errorHandler(error) : logger.error('Error', error),

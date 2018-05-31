@@ -14,5 +14,5 @@
 	"EXCHANGE_INTERVAL": 300000,
 	"EXCHANGE_TIMEOUT": 60000,
 	"MAX_DATETIME_PROXIMITY": "24 hours",
-	"ETHEREUM_URL": "http://localhost:8545"
+	"ETHEREUM_URL": "https://mainnet.infura.io/Vu26pdLb7Ug6GFEj2KuJ"
 }

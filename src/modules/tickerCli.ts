@@ -1,8 +1,8 @@
 import logger from '../logger';
 import { Option } from '../interfaces';
-import { sendTicker } from '../sns';
+import { sendMessage } from '../sns';
 import { purgeQueue } from '../sqs';
-import { insertTicker, removeTicker } from '../dynamo';
+import { putItem, removeItem } from '../dynamo';
 import { createIndex, deleteIndex, searchTickers } from '../elastic';
 import { MyError } from '../errors';
 
@@ -35,12 +35,12 @@ export default async function main(option: {[key: string]: string}) {
 			if (args.length !== 3 || parseFloat(args[3]) === NaN) {
 				throw new MyError('Invalud number of arguments. Expected 3 arguments in double quotes');
 			}
-			let ret = await sendTicker('coinmarketcap', args[0], args[1], parseFloat(args[2]));
+			let ret = await sendMessage({ exchange: 'coinmarketcap', pair: args[0], datetime: args[1], rate: parseFloat(args[2]) });
 			logger.info('ticker inserted', ret);
 		}
 		if (option.removeTicker) {
 			logger.info(`Removing ticker: "${option.removeTicker}"`);
-			let ret = await removeTicker(option.removeTicker);
+			let ret = await removeItem(option.removeTicker);
 			logger.info('ticker deleted', ret);
 		}
 		if (option.searchTickers) {

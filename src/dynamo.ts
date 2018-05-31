@@ -1,10 +1,10 @@
+import R from 'ramda';
 import { DynamoDB } from 'aws-sdk';
 import uuidv4 from 'uuid/v4';
 
 import logger from './logger';
 import config from './config';
-// import { MyError } from './errors';
-// import { Ticker } from './interfaces';
+import { MyError } from './errors';
 
 let client: DynamoDB | null = null;
 
@@ -24,93 +24,39 @@ function getClient(): DynamoDB {
 	}
 }
 
-export function insertTicker(exchange: string, pair: string, datetime: string, rate: number) {
-	return new Promise((resolve, reject) => {
-		getClient().putItem({
+export async function putItem(item: object) {
+	try {
+		item = R.map(value => isNaN(value) ? { S: value } : { N: String(value) }, item);
+		await getClient().putItem({
 			TableName: config.AWS_DYNAMO_TABLE,
-			Item: {
-				uuid: {
-					S: uuidv4() as string
-				},
-				exchange: {
-					S: exchange
-				},
-				pair: {
-					S: pair
-				},
-				datetime: {
-					S: datetime
-				},
-				rate: {
-					N: String(rate)
-				}
-			}
-		}, (error, data) => {
-			if (error) {
-				reject(error);
-			} else {
-				resolve(data);
-			}
-		});
-	});
+			Item: { ...item, uuid: { S: uuidv4() as string } }
+		}).promise();
+	} catch (error) {
+		throw new MyError('Dynamo putItem failed', { error });
+	}
 }
 
-/* Not working for now */
-export function removeTicker(uuid: string) {
-	return new Promise((resolve, reject) => {
-		getClient().deleteItem({
+/* Currently not used */
+export async function removeItem(uuid: string) {
+	try {
+		await getClient().deleteItem({
 			TableName: config.AWS_DYNAMO_TABLE,
 			Key: {
 				uuid: {
 					S: uuid
 				}
 			}
-		}, (error, data) => {
-			if (error) {
-				reject(error);
-			} else {
-				resolve(data);
-			}
-		});
-	});
+		}).promise();
+	} catch (error) {
+		throw new MyError('Dynamo deleteItem failed', { error });
+	}
 }
 
 /* We don't have permission for this operation */
-export function describeTable() {
-	return new Promise((resolve, reject) => {
-		getClient().describeTable({
-			TableName: config.AWS_DYNAMO_TABLE
-		}, (error, data) => {
-			if (error) {
-				reject(error);
-			} else {
-				resolve(data);
-			}
-		});
-	});
-}
-
-/* We Don't have permission for this operation*/
-export function updateTable() {
-	return new Promise((resolve, reject) => {
-		getClient().updateTable({
-			TableName: config.AWS_DYNAMO_TABLE,
-			AttributeDefinitions: [{
-				AttributeName: 'pair',
-				AttributeType: 'S',
-			}, {
-				AttributeName: 'datetime',
-				AttributeType: 'S',
-			}, {
-				AttributeName: 'rate',
-				AttributeType: 'N',
-			}]
-		}, (error, data) => {
-			if (error) {
-				reject(error);
-			} else {
-				resolve(data);
-			}
-		});
-	});
+export async function describeTable() {
+	try {
+		await getClient().describeTable({ TableName: config.AWS_DYNAMO_TABLE }).promise();
+	} catch (error) {
+		throw new MyError('Dynamo describeTable failed', { error });
+	}
 }

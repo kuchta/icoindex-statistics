@@ -5,7 +5,7 @@ import { coinmarketcap } from 'ccxt';
 import logger from '../logger';
 import config from '../config';
 import { Option, Exchange, CCXTTickers, Ticker } from '../interfaces';
-import { sendTicker } from '../sns';
+import { sendMessage } from '../sns';
 
 export const description = 'Fetch tickers from exchange';
 export const options: Option[] = [
@@ -44,7 +44,7 @@ export function fetchService({ exchange = new coinmarketcap({ timeout: config.EX
 
 	return observable.subscribe(
 		nextHandler ? (ticker) => nextHandler(ticker) : (ticker) => {
-			sendTicker(ticker.exchange, ticker.pair, ticker.datetime, ticker.rate)
+			sendMessage({ exchange: ticker.exchange, pair: ticker.pair, datetime: ticker.datetime, rate: ticker.rate })
 			.then(() => nextThenHandler ? nextThenHandler(ticker) : logger.info1('Sucessfully sent to SNS', ticker))
 			.catch((error) => nextErrorHandler ? nextErrorHandler(error) : logger.error('Sending to SNS failed', error));
 		},

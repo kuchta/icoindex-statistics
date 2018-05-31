@@ -100,3 +100,24 @@ declare module '*/testData/tickers.json' {
 	const content: { fixtures: TickerOutput[], queries: TestQuery[] };
 	export default content;
 }
+
+declare module 'ethers' {
+	declare namespace utils {
+		declare function formatEther(obj: object): number;
+	}
+	declare namespace providers {
+		declare class Provider {
+			constructor(testnet?: string);
+			subprovider: Provider;
+			perform(method: string, params: string): Promise<object>;
+		}
+		declare class FallbackProvider {
+			constructor(providers: Providers[])
+		}
+		declare class InfuraProvider extends Provider {}
+		declare class EtherscanProvider extends Provider {}
+		declare function getDefaultProvider(): Provider;
+	}
+	// const content: any;
+	// export default content;
+}

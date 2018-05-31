@@ -49,7 +49,8 @@ export default function main(options: any) {
 
 	test('fetchService', (test) => {
 		test.plan(fixtures.length);
-		let fsSubcription = fetchService({ exchange: createExchange(fixtures),
+		let fsSubcription = fetchService({
+			exchange: createExchange(fixtures),
 			nextThenHandler: (ticker) => checkAndMarkData(test, fixtures, ticker, 'sentToQueue'),
 			nextErrorHandler: (error) => test.fail(error),
 			errorHandler: (error) => test.fail(error),

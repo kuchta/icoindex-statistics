@@ -23,11 +23,11 @@ function getClient(): SNS {
 	}
 }
 
-export async function sendTicker(exchange: string, pair: string, datetime: string, rate: number) {
+export async function sendMessage(message: object) {
 	try {
 		await getClient().publish({
 			TopicArn: config.AWS_SNS_TOPIC,
-			Message: JSON.stringify({ exchange, pair, datetime, rate })
+			Message: JSON.stringify(message)
 		}).promise();
 	} catch (error) {
 		throw new MyError('SNS publish failed', { error });

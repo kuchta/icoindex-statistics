@@ -23,24 +23,7 @@ function getClient(): SQS {
 	}
 }
 
-/* Not used - tickers are sent through SNS */
-// export function sendTicker(exchange: string, pair: string, datetime: string, rate: number) {
-// 	return new Promise<SQS.SendMessageResult>((resolve, reject) => {
-// 		getClient().sendMessage({
-// 			QueueUrl: config.AWS_SQS_QUEUE_URL,
-// 			DelaySeconds: 0,
-// 			MessageBody: JSON.stringify({ exchange, pair, datetime, rate })
-// 		}, (error, data) => {
-// 			if (error) {
-// 				reject(new MyError('SQS sendMessage failed', { error }));
-// 			} else {
-// 				resolve(data);
-// 			}
-// 		});
-// 	});
-// }
-
-export async function receiveTicker() {
+export async function receiveMessage() {
 	try {
 		while (true) {
 			let data = await getClient().receiveMessage({ QueueUrl: config.AWS_SQS_QUEUE_URL }).promise();
@@ -55,9 +38,10 @@ export async function receiveTicker() {
 					if (body && body.TopicArn === config.AWS_SNS_TOPIC) {
 						if (message.ReceiptHandle) {
 							await deleteMessage(message.ReceiptHandle);
+						} else {
+							logger.warning("SQS message received don't have ReceiptHandle");
 						}
-						let ticker = JSON.parse(body.Message);
-						return ticker as Ticker;
+						return JSON.parse(body.Message);
 					}
 				}
 			}
