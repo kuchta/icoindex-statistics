@@ -3,6 +3,7 @@ schema {
 }
 type Query {
 	getTokenPairRate(tickers: [TickerInput]): [TickerOutput]
+	# getAddressTransactions(addresses: [AddressesInput]): [Transactions]
 }
 input TickerInput {
 	exchange: String
@@ -16,4 +17,7 @@ type TickerOutput {
 	id: [String]
 	rate: Float
 }
+# input AddressesInput {
+# 	address: String!
+# }
 scalar Date

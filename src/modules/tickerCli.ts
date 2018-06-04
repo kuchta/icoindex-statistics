@@ -2,7 +2,7 @@ import logger from '../logger';
 import { Option } from '../interfaces';
 import { sendMessage } from '../sns';
 import { purgeQueue } from '../sqs';
-import { putItem, removeItem } from '../dynamo';
+import { putItem, deleteItem } from '../dynamo';
 import { createIndex, deleteIndex, searchTickers } from '../elastic';
 import { MyError } from '../errors';
 
@@ -40,7 +40,7 @@ export default async function main(option: {[key: string]: string}) {
 		}
 		if (option.removeTicker) {
 			logger.info(`Removing ticker: "${option.removeTicker}"`);
-			let ret = await removeItem(option.removeTicker);
+			let ret = await deleteItem(option.removeTicker);
 			logger.info('ticker deleted', ret);
 		}
 		if (option.searchTickers) {

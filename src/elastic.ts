@@ -30,11 +30,6 @@ class LogToMyLogger {
 	}
 }
 
-// AWSConfig.update({
-// 	credentials: new Credentials(config.AWS_ACCESS_ID, config.AWS_SECRET_KEY),
-// 	region: config.AWS_REGION
-// });
-
 let client: Client | null = null;
 
 function getClient(): Client {
@@ -135,7 +130,6 @@ export async function searchTickers({ query, pair, datetime, exchange }: { query
 		};
 	}
 
-	// logger.info('query', query);
 	try {
 		let response = await getClient().search<Ticker>({
 			index: config.AWS_ELASTIC_INDEX,
@@ -203,16 +197,3 @@ export async function removeTicker(id: string) {
 		throw new MyError('ES delete failed', { error });
 	}
 }
-
-// /* Not used, just for testing */
-// export async function insertTicker(pair: string, datetime: string, rate: number) {
-// 	try {
-// 		return await getClient().index<Ticker>({
-// 			index: config.AWS_ELASTIC_INDEX,
-// 			type: config.AWS_ELASTIC_TYPE,
-// 			body: { pair, datetime, rate }
-// 		});
-// 	} catch (error) {
-// 		throw new MyError('ES index failed', { error });
-// 	}
-// }

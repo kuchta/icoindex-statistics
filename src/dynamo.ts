@@ -1,4 +1,3 @@
-import R from 'ramda';
 import { DynamoDB } from 'aws-sdk';
 import uuidv4 from 'uuid/v4';
 
@@ -24,20 +23,40 @@ function getClient(): DynamoDB {
 	}
 }
 
-export async function putItem(item: object) {
+export async function putItem(obj: object) {
 	try {
-		item = R.map(value => isNaN(value) ? { S: value } : { N: String(value) }, item);
+		let item = { ...toPutItemInputAttributeMap(obj), uuid: { S: uuidv4() as string } };
 		await getClient().putItem({
 			TableName: config.AWS_DYNAMO_TABLE,
-			Item: { ...item, uuid: { S: uuidv4() as string } }
+			Item: item
 		}).promise();
 	} catch (error) {
 		throw new MyError('Dynamo putItem failed', { error });
 	}
 }
 
+function toPutItemInputAttributeMap(obj: any): DynamoDB.PutItemInputAttributeMap {
+	let item: any = {};
+	Object.entries(obj).forEach(([key, value]) => {
+		if (value == null) {
+			item[key] = { NULL: true };
+		} else if (typeof value === 'boolean') {
+			item[key] = { BOOL: value };
+		} else if (typeof value === 'number') {
+			item[key] = { N: String(value) };
+		} else if (typeof value === 'string') {
+			item[key] = { S: value };
+		} else if (typeof value === 'object') {
+			item[key] = { M: toPutItemInputAttributeMap(value) };
+		} else {
+			throw new MyError(`toPutItemInputAttributeMap invalid value "${value}" of type "${typeof value}"`);
+		}
+	});
+	return item;
+}
+
 /* Currently not used */
-export async function removeItem(uuid: string) {
+export async function deleteItem(uuid: string) {
 	try {
 		await getClient().deleteItem({
 			TableName: config.AWS_DYNAMO_TABLE,

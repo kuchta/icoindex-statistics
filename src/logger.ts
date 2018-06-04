@@ -1,12 +1,16 @@
 import moment from 'moment';
-import winston, { LoggerInstance, LeveledLogMethod, TransportInstance, LoggerOptions } from 'winston';
+import * as winston /* { LoggerStatic, LoggerInstance, LeveledLogMethod, TransportInstance, LoggerOptions } */ from 'winston';
 export { LeveledLogMethod } from 'winston';
 
 import { MyError } from './errors';
 
-export interface MyLogger extends LoggerInstance {
+export interface MyLogger extends winston.Winston {
 	init: (verbose: number, debug: boolean) => void;
-	info1: LeveledLogMethod;
+	error: winston.LeveledLogMethod;
+	warning: winston.LeveledLogMethod;
+	info: winston.LeveledLogMethod;
+	info1: winston.LeveledLogMethod;
+	debug: winston.LeveledLogMethod;
 }
 
 const logger = winston as MyLogger;
@@ -16,12 +20,16 @@ logger.configure(config);
 for (let level in config.levels!) {
 	logger[level] = logMessage(level, false);
 }
+logger.addColors(config.colors);
 
 logger.init = (verbose = 0, debug: boolean) => {
 	// console.log(`logger.init(verbose=${verbose}, debug=${debug})`);
 	// Debug level active just after calling this.
 	if (debug) {
-		logger.configure(makeConfig('debug'));
+		let config = makeConfig('debug');
+		logger.configure(config);
+	} else if (verbose > 0) {
+		logger.configure(makeConfig('info' + verbose));
 	}
 
 	for (let level in config.levels!) {
@@ -38,7 +46,7 @@ logger.init = (verbose = 0, debug: boolean) => {
 	}
 };
 
-function makeConfig(level: string): LoggerOptions {
+function makeConfig(level: string): winston.LoggerOptions {
 	return {
 		// padLevels: true,
 		level: level,
@@ -126,7 +134,7 @@ function logMessage(level: string, debug: boolean) {
 			}
 		}
 
-		// console.log(`level=${level}, message="${message}", object="${JSON.stringify(object)}"`);
+		// console.log(`level=${level}, debug=${debug}, message="${message}", object="${JSON.stringify(object)}"`);
 
 		if (object !== undefined) {
 			logger.log(level, message, object);
@@ -144,4 +152,4 @@ function removeFirstLine(str: string) {
 	return lines.join('\n');
 }
 
-export default logger;
+export default logger as MyLogger;

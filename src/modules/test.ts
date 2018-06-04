@@ -21,15 +21,6 @@ export const options: Option[] = [
 	{ option: '-p, --port <port>', description: 'bind GraphQL service to this port' },
 ];
 
-const query = `query MyQuery($tickers: [TickerInput]) {
-	getTokenPairRate(tickers: $tickers) {
-		pair
-		exchange
-		datetime
-		rate
-	}
-}`;
-
 export default function main(options: any) {
 	let host = options.host || 'localhost';
 	// let host = 'localhost';
@@ -74,14 +65,22 @@ export default function main(options: any) {
 		test.plan(queries.length);
 		let server = queryService(host, port, () => {
 			const client = new GraphQLClient(`http://${host}:${port}/graphql`);
-			client.request<TickerOutputs>(query, { tickers: R.map(R.prop('query'), queries) })
+			client.request<TickerOutputs>(`query MyQuery($tickers: [TickerInput]) {
+				getTokenPairRate(tickers: $tickers) {
+					pair
+					exchange
+					datetime
+					rate
+				}
+			}`, { tickers: R.map(R.prop('query'), queries) })
 			.then((data) => {
 				server.close();
 				let ticker = data.getTokenPairRate;
-				let expectedResult = R.map(R.prop('result'), queries);
-				for (let i = 0; i < queries.length; i++) {
-					test.same(ticker[i], expectedResult[i], `ticker pair=${ticker[i].pair}, datetime=${ticker[i].datetime}, rate=${ticker[i].rate}`);
-				}
+				// let expectedResult = R.map(R.prop('result'), queries);
+				queries.forEach((query, i) => test.same(ticker[i], query.result, `ticker pair=${ticker[i].pair}, datetime=${ticker[i].datetime}, rate=${ticker[i].rate}`));
+				// for (let i = 0; i < queries.length; i++) {
+				// 	test.same(ticker[i], expectedResult[i], `ticker pair=${ticker[i].pair}, datetime=${ticker[i].datetime}, rate=${ticker[i].rate}`);
+				// }
 				test.end();
 			}).catch((error) => {
 				server.close();

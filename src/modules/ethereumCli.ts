@@ -2,7 +2,7 @@ import ethers from 'ethers';
 
 import logger from '../logger';
 import { Option } from '../interfaces';
-import { resolveName, lookupAddress, getLatestBlockNumber, getBlock, getBalance, getHistory, getLogs, getTransaction, listenForAddressBalanceChange } from '../ethereum';
+import { resolveName, lookupAddress, getLatestBlockNumber, getBlock, getTransaction, getBalance, getTransactions, listenForAddressBalanceChange } from '../ethereum';
 import { MyError } from '../errors';
 
 export const description = 'Ethereum Command Utility';
@@ -11,10 +11,11 @@ export const options: Option[] = [
 	{ option: '--lookup-address <address>', description: 'lookup ens name for address' },
 	{ option: '--get-latest-block-number', description: 'get latest block number' },
 	{ option: '-B, --get-block <block hash or number>', description: 'get block' },
-	{ option: '-A, --get-balance <address>', description: 'get address balance' },
-	{ option: '-H, --get-history <address>', description: 'get address history' },
-	{ option: '-l, --get-logs <address>', description: 'get address log' },
 	{ option: '-T, --get-transaction <transaction-id>', description: 'get transation' },
+	{ option: '-A, --get-balance <address>', description: 'get address balance' },
+	// { option: '-H, --get-history <address>', description: 'get address history' },
+	{ option: '-t, --get-transactions <address>', description: 'get address transactions' },
+	{ option: '-l, --get-logs <address>', description: 'get address log' },
 	{ option: '-L, --listen-for-address-balance-change <address>', description: 'listen for address balance change' },
 ];
 
@@ -26,9 +27,6 @@ export default async function main(option: {[key: string]: string}) {
 		if (option.lookupAddress) {
 			logger.info(`name: "${await lookupAddress(option.lookupAddress)}"`);
 		}
-		if (option.getLatestBlockNumber) {
-			logger.info('latest block:', await getLatestBlockNumber());
-		}
 		if (option.getBlock) {
 			let hashOrNumber: string | number = option.getBlock;
 			if (parseInt(hashOrNumber) !== NaN) {
@@ -36,29 +34,29 @@ export default async function main(option: {[key: string]: string}) {
 			}
 			logger.info('block:', await getBlock(hashOrNumber));
 		}
-		if (option.getBalance) {
-			if (typeof option.getBalance !== 'string') {
-				throw new MyError('Address argument is required');
-			}
-			logger.info('balance:', await getBalance(option.getBalance));
-		}
 		if (option.getTransaction) {
 			if (typeof option.getTransaction !== 'string') {
 				throw new MyError('Transaction ID argument is required');
 			}
 			logger.info('transaction:', await getTransaction(option.getTransaction));
 		}
-		if (option.getHistory) {
-			if (typeof option.getHistory !== 'string') {
-				throw new MyError('address argument is required');
+		if (option.getBalance) {
+			if (typeof option.getBalance !== 'string') {
+				throw new MyError('Address argument is required');
 			}
-			logger.info('history:', await getHistory(option.getHistory));
+			logger.info('balance:', await getBalance(option.getBalance));
 		}
-		if (option.getLogs) {
-			if (typeof option.getLogs !== 'string') {
+		// if (option.getHistory) {
+		// 	if (typeof option.getHistory !== 'string') {
+		// 		throw new MyError('address argument is required');
+		// 	}
+		// 	logger.info('history:', await getHistory(option.getHistory));
+		// }
+		if (option.getTransactions) {
+			if (typeof option.getTransactions !== 'string') {
 				throw new MyError('address argument is required');
 			}
-			logger.info('logs:', await getLogs(option.getLogs));
+			logger.info('transactions:', await getTransactions(option.getTransactions));
 		}
 		if (option.listenForAddressBalanceChange) {
 			listenForAddressBalanceChange(option.listenForAddressBalanceChange);
