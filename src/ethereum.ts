@@ -1,10 +1,12 @@
 import moment from 'moment';
 // import Web3 from 'web3';
-import ethers, { providers, Transaction } from 'ethers';
+// import ethers, { providers, Transaction } from 'ethers';
 
 import config from './config';
 import logger from './logger';
 import { MyError } from './errors';
+
+import BlockCypher from './blockcypher';
 
 type Filter = { address: string; fromBlock?: number, topics?: string[] };
 
@@ -27,12 +29,11 @@ let client: any = null;
 // 	}
 // }
 
-function getClient(): providers.Provider {
+function getClient(): BlockCypher {
 	if (client) {
 		return client;
 	} else {
 		logger.debug(`Creating Ethereum client...`);
-
 		// client = ethers.providers.getDefaultProvider();
 
 		// client = new ethers.providers.FallbackProvider([
@@ -40,10 +41,13 @@ function getClient(): providers.Provider {
 		// 	new ethers.providers.EtherscanProvider()
 		// ]);
 
-		client = new ethers.providers.InfuraProvider();
+		// client = new ethers.providers.InfuraProvider();
 		// client = new ethers.providers.EtherscanProvider();
 
 		// client = new DebugProvider();
+
+		client = new BlockCypher('eth', 'main', config.BLOCKCYPHER_TOKEN);
+		client.init();
 
 		return client;
 	}
@@ -53,7 +57,7 @@ function getClient(): providers.Provider {
 
 export async function getTransactions(address: string) {
 	try {
-		return await getLogs(address);
+		return await getClient().getAddressFull(address, { limit: 2000, confirmations: 1 });
 		// let blockCounter = 1;
 		// let blockLapTime = moment();
 		// let transactions: Transaction[] = [];
@@ -77,56 +81,56 @@ export async function getTransactions(address: string) {
 	}
 }
 
-export function resolveName(name: string) {
-	return getClient().resolveName(name);
-}
-
-export function lookupAddress(address: string) {
-	return getClient().lookupAddress(address);
-}
-
-export function getLatestBlockNumber() {
-	return getClient().getBlockNumber();
-}
-
-export function getBlock(hashOrNumber: string | number) {
-	return getClient().getBlock(hashOrNumber);
-}
-
-export async function getBalance(address: string) {
-	return ethers.utils.formatEther(await getClient().getBalance(address));
-}
-
-export async function getTransaction(hash: string) {
-	return await getClient().getTransaction(hash);
-	// return { ...rec,
-	// 	value: ethers.utils.formatEther(rec.value),
-	// 	gasPrice: ethers.utils.formatEther(rec.gasPrice),
-	// 	gasLimit: ethers.utils.formatEther(rec.gasLimit)
-	// };
-}
-
-export function getLogs(address: string, fromBlock?: number) {
-	let filter: Filter = { address };
-	if (fromBlock) {
-		filter.fromBlock = fromBlock;
-	}
-	logger.debug('filter', filter);
-	return getClient().getLogs(filter);
-}
-
-// export async function getHistory(address: string) {
-// 	let ret = await getClient().getHistory(address);
-// 	return ret.map((rec: any) => ({
-// 		...rec,
-// 		value: ethers.utils.formatEther(rec.value),
-// 		gasPrice: ethers.utils.formatEther(rec.gasPrice),
-// 		gasLimit: ethers.utils.formatEther(rec.gasLimit)
-// 	}));
+// export function resolveName(name: string) {
+// 	return getClient().resolveName(name);
 // }
 
-export function listenForAddressBalanceChange(address: string) {
-	getClient().on(address, (balance: any) => {
-		logger.info(`Balance changed on address: ${address}. New balance: ${ethers.utils.formatEther(balance)}`);
-	});
-}
+// export function lookupAddress(address: string) {
+// 	return getClient().lookupAddress(address);
+// }
+
+// export function getLatestBlockNumber() {
+// 	return getClient().getBlockNumber();
+// }
+
+// export function getBlock(hashOrNumber: string | number) {
+// 	return getClient().getBlock(hashOrNumber);
+// }
+
+// export async function getBalance(address: string) {
+// 	return ethers.utils.formatEther(await getClient().getBalance(address));
+// }
+
+// export async function getTransaction(hash: string) {
+// 	return await getClient().getTransaction(hash);
+// 	// return { ...rec,
+// 	// 	value: ethers.utils.formatEther(rec.value),
+// 	// 	gasPrice: ethers.utils.formatEther(rec.gasPrice),
+// 	// 	gasLimit: ethers.utils.formatEther(rec.gasLimit)
+// 	// };
+// }
+
+// export function getLogs(address: string, fromBlock?: number) {
+// 	let filter: Filter = { address };
+// 	if (fromBlock) {
+// 		filter.fromBlock = fromBlock;
+// 	}
+// 	logger.debug('filter', filter);
+// 	return getClient().getLogs(filter);
+// }
+
+// // export async function getHistory(address: string) {
+// // 	let ret = await getClient().getHistory(address);
+// // 	return ret.map((rec: any) => ({
+// // 		...rec,
+// // 		value: ethers.utils.formatEther(rec.value),
+// // 		gasPrice: ethers.utils.formatEther(rec.gasPrice),
+// // 		gasLimit: ethers.utils.formatEther(rec.gasLimit)
+// // 	}));
+// // }
+
+// export function listenForAddressBalanceChange(address: string) {
+// 	getClient().on(address, (balance: any) => {
+// 		logger.info(`Balance changed on address: ${address}. New balance: ${ethers.utils.formatEther(balance)}`);
+// 	});
+// }

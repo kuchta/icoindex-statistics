@@ -1,8 +1,6 @@
-import ethers from 'ethers';
-
 import logger from '../logger';
 import { Option } from '../interfaces';
-import { resolveName, lookupAddress, getLatestBlockNumber, getBlock, getTransaction, getBalance, getTransactions, listenForAddressBalanceChange } from '../ethereum';
+import { getTransactions } from '../ethereum';
 import { MyError } from '../errors';
 
 export const description = 'Ethereum Command Utility';
@@ -21,31 +19,31 @@ export const options: Option[] = [
 
 export default async function main(option: {[key: string]: string}) {
 	try {
-		if (option.resolveName) {
-			logger.info(`address: "${await resolveName(option.resolveName)}"`);
-		}
-		if (option.lookupAddress) {
-			logger.info(`name: "${await lookupAddress(option.lookupAddress)}"`);
-		}
-		if (option.getBlock) {
-			let hashOrNumber: string | number = option.getBlock;
-			if (parseInt(hashOrNumber) !== NaN) {
-				hashOrNumber = parseInt(hashOrNumber);
-			}
-			logger.info('block:', await getBlock(hashOrNumber));
-		}
-		if (option.getTransaction) {
-			if (typeof option.getTransaction !== 'string') {
-				throw new MyError('Transaction ID argument is required');
-			}
-			logger.info('transaction:', await getTransaction(option.getTransaction));
-		}
-		if (option.getBalance) {
-			if (typeof option.getBalance !== 'string') {
-				throw new MyError('Address argument is required');
-			}
-			logger.info('balance:', await getBalance(option.getBalance));
-		}
+		// if (option.resolveName) {
+		// 	logger.info(`address: "${await resolveName(option.resolveName)}"`);
+		// }
+		// if (option.lookupAddress) {
+		// 	logger.info(`name: "${await lookupAddress(option.lookupAddress)}"`);
+		// }
+		// if (option.getBlock) {
+		// 	let hashOrNumber: string | number = option.getBlock;
+		// 	if (parseInt(hashOrNumber) !== NaN) {
+		// 		hashOrNumber = parseInt(hashOrNumber);
+		// 	}
+		// 	logger.info('block:', await getBlock(hashOrNumber));
+		// }
+		// if (option.getTransaction) {
+		// 	if (typeof option.getTransaction !== 'string') {
+		// 		throw new MyError('Transaction ID argument is required');
+		// 	}
+		// 	logger.info('transaction:', await getTransaction(option.getTransaction));
+		// }
+		// if (option.getBalance) {
+		// 	if (typeof option.getBalance !== 'string') {
+		// 		throw new MyError('Address argument is required');
+		// 	}
+		// 	logger.info('balance:', await getBalance(option.getBalance));
+		// }
 		// if (option.getHistory) {
 		// 	if (typeof option.getHistory !== 'string') {
 		// 		throw new MyError('address argument is required');
@@ -58,9 +56,9 @@ export default async function main(option: {[key: string]: string}) {
 			}
 			logger.info('transactions:', await getTransactions(option.getTransactions));
 		}
-		if (option.listenForAddressBalanceChange) {
-			listenForAddressBalanceChange(option.listenForAddressBalanceChange);
-		}
+		// if (option.listenForAddressBalanceChange) {
+		// 	listenForAddressBalanceChange(option.listenForAddressBalanceChange);
+		// }
 	} catch (error) {
 		logger.error('command failed', error);
 	}
