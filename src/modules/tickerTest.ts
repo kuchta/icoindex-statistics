@@ -9,7 +9,7 @@ import config from '../config';
 import { MyError } from '../errors';
 import { Option, CCXTTicker, CCXTTickers, Ticker, Exchange, TickerOutput, TickerOutputs, TestQuery } from '../interfaces';
 
-import { fetchService } from './fetchService';
+import { fetchService } from './tickerFetchService';
 import { storeService } from './storeService';
 import { queryService } from './queryService';
 
@@ -42,10 +42,10 @@ export default function main(options: any) {
 		test.plan(fixtures.length);
 		let fsSubcription = fetchService({
 			exchange: createExchange(fixtures),
+			stopPredicate: () => allDataPassed(fixtures, 'sentToQueue'),
 			nextThenHandler: (ticker) => checkAndMarkData(test, fixtures, ticker, 'sentToQueue'),
 			nextErrorHandler: (error) => test.fail(error),
 			errorHandler: (error) => test.fail(error),
-			takeWhilePredicate: () => !allDataPassed(fixtures, 'sentToQueue'),
 			completeHandler: () => test.end()
 		});
 	});
@@ -53,10 +53,10 @@ export default function main(options: any) {
 	test('storeService', (test) => {
 		test.plan(fixtures.length);
 		let ssSubcription = storeService({
+			stopPredicate: () => allDataPassed(fixtures, 'sentToDB'),
 			nextThenHandler: (ticker) => checkAndMarkData(test, fixtures, ticker, 'sentToDB'),
 			nextErrorHandler: (error) => test.fail(error),
 			errorHandler: (error) => test.fail(error),
-			takeWhilePredicate: () => !allDataPassed(fixtures, 'sentToDB'),
 			completeHandler: () => test.end()
 		});
 	});

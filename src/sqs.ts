@@ -7,6 +7,11 @@ import { Ticker } from './interfaces';
 
 let client: SQS | null = null;
 
+export interface Message<T> {
+	body: T;
+	receiptHandle: string;
+}
+
 function getClient(): SQS {
 	if (client) {
 		return client;
@@ -23,29 +28,28 @@ function getClient(): SQS {
 	}
 }
 
-export async function receiveMessage() {
+export async function receiveMessage<T>(timeout?: number) {
 	try {
-		while (true) {
-			let data = await getClient().receiveMessage({ QueueUrl: config.AWS_SQS_QUEUE_URL }).promise();
+		let params = { QueueUrl: config.AWS_SQS_QUEUE_URL };
+		if (timeout) {
+			params['WaitTimeSeconds'] = timeout;
+		}
+		let data = await getClient().receiveMessage(params).promise();
 
-			if (!data.Messages) {
-				continue;
-			}
-
+		if (data.Messages && data.Messages.length > 0) {
+			/* loop is used to satisfy TypeScript checker */
 			for (let message of data.Messages) {
-				if (message.Body) {
-					let body = JSON.parse(message.Body);
-					if (body && body.TopicArn === config.AWS_SNS_TOPIC) {
-						if (message.ReceiptHandle) {
-							await deleteMessage(message.ReceiptHandle);
-						} else {
-							logger.warning("SQS message received don't have ReceiptHandle");
-						}
-						return JSON.parse(body.Message);
-					}
+				if (message.ReceiptHandle && message.Body) {
+					// if (body && body.TopicArn === config.AWS_SNS_TOPIC) {
+					return {
+						body: JSON.parse(JSON.parse(message.Body).Message) as T,
+						receiptHandle: message.ReceiptHandle
+					} as Message<T>;
 				}
 			}
 		}
+
+		return null;
 	} catch (error) {
 		throw new MyError('SQS receiveMessage failed', { error });
 	}

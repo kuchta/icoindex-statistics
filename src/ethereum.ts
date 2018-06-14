@@ -1,16 +1,12 @@
 import moment from 'moment';
 // import Web3 from 'web3';
-// import ethers, { providers, Transaction } from 'ethers';
+import ethers, { providers, Transaction } from 'ethers';
 
 import config from './config';
 import logger from './logger';
 import { MyError } from './errors';
 
-import BlockCypher from './blockcypher';
-
 type Filter = { address: string; fromBlock?: number, topics?: string[] };
-
-let addresses = [ '0x86fa049857e0209aa7d9e616f7eb3b3b78ecfdb0' ];
 
 let client: any = null;
 
@@ -29,7 +25,9 @@ let client: any = null;
 // 	}
 // }
 
-function getClient(): BlockCypher {
+// let web3 = new Web3(new Web3.providers.HttpProvider(config.ETHEREUM_URL));
+
+function getClient(): providers.Provider {
 	if (client) {
 		return client;
 	} else {
@@ -41,45 +39,75 @@ function getClient(): BlockCypher {
 		// 	new ethers.providers.EtherscanProvider()
 		// ]);
 
-		// client = new ethers.providers.InfuraProvider();
-		// client = new ethers.providers.EtherscanProvider();
-
-		// client = new DebugProvider();
-
-		client = new BlockCypher('eth', 'main', config.BLOCKCYPHER_TOKEN);
-		client.init();
+		client = new ethers.providers.InfuraProvider();
 
 		return client;
 	}
 }
 
-// let web3 = new Web3(new Web3.providers.HttpProvider(config.ETHEREUM_URL));
+export function getLatestBlockNumber() {
+	return getClient().getBlockNumber();
+}
 
-export async function getTransactions(address: string) {
+export async function getAddressesMovements(addresses: string[], startBlock: number, endBlock: number) {
 	try {
-		return await getClient().getAddressFull(address, { limit: 2000, confirmations: 1 });
-		// let blockCounter = 1;
-		// let blockLapTime = moment();
-		// let transactions: Transaction[] = [];
-		// for (let i = await getLatestBlockNumber(); i > 0; i--, blockCounter++) {
-		// 	let block = await getBlock(i);
-		// 	for (let j = block.transactions.length; j < 0; j--) {
-		// 		let transaction = await getTransaction(block.transactions[j]);
-		// 		if (transaction.from === address || transaction.to === address) {
-		// 			logger.info1('found transaction', transaction);
-		// 			transactions.push(transaction);
-		// 		}
-		// 	}
-		// 	process.stdout.write('.');
-		// 	if (blockCounter % 1000 === 0) {
-		// 		logger.info1(`1000 blocks in ${moment.duration(moment().diff(blockLapTime)).asMilliseconds() / 1000} seconds`);
-		// 		blockLapTime = moment();
-		// 	}
-		// }
+		let transactions = {};
+		let client = getClient();
+		for (let i = startBlock; i <= endBlock; i++) {
+			let block = await client.getBlock(i);
+			block.transactions.forEach(async (txid) => {
+				let transaction = await client.getTransaction(txid);
+				let foundAddresses = addresses.filter((address) => transaction.from === address || transaction.to === address);
+				if (foundAddresses.length > 0) {
+					if (foundAddresses.includes(transaction.from)) {
+						transactions[transaction.from] = transactions[transaction.from] ? transactions[transaction.from] : 0 - transaction.value.toNumber();
+					} else  {
+						transactions[transaction.to] = transactions[transaction.to] ? transactions[transaction.to] : 0 + transaction.value.toNumber();
+					}
+				}
+			});
+		}
+		return transactions;
 	} catch (error) {
-		throw new MyError('Ethereum getTransaction failed', { error });
+		throw new MyError('Ethereum getTransactions failed', { error });
 	}
 }
+
+// async function getTransaction(hash: string) {
+// 	let ret = await getClient().getTransaction(hash);
+// 	return ethers.utils.formatEther(ret.value);
+// 	// return { ...rec,
+// 	// 	value: ethers.utils.formatEther(rec.value),
+// 	// 	gasPrice: ethers.utils.formatEther(rec.gasPrice),
+// 	// 	gasLimit: ethers.utils.formatEther(rec.gasLimit)
+// 	// };
+// }
+
+// export async function getTransactions(address: string) {
+// 	try {
+// 		return await getClient().getAddressFull(address, { limit: 2000, confirmations: 1 });
+// 		// let blockCounter = 1;
+// 		// let blockLapTime = moment();
+// 		// let transactions: Transaction[] = [];
+// 		// for (let i = await getLatestBlockNumber(); i > 0; i--, blockCounter++) {
+// 		// 	let block = await getBlock(i);
+// 		// 	for (let j = block.transactions.length; j < 0; j--) {
+// 		// 		let transaction = await getTransaction(block.transactions[j]);
+// 		// 		if (transaction.from === address || transaction.to === address) {
+// 		// 			logger.info1('found transaction', transaction);
+// 		// 			transactions.push(transaction);
+// 		// 		}
+// 		// 	}
+// 		// 	process.stdout.write('.');
+// 		// 	if (blockCounter % 1000 === 0) {
+// 		// 		logger.info1(`1000 blocks in ${moment.duration(moment().diff(blockLapTime)).asMilliseconds() / 1000} seconds`);
+// 		// 		blockLapTime = moment();
+// 		// 	}
+// 		// }
+// 	} catch (error) {
+// 		throw new MyError('Ethereum getTransaction failed', { error });
+// 	}
+// }
 
 // export function resolveName(name: string) {
 // 	return getClient().resolveName(name);
@@ -89,25 +117,12 @@ export async function getTransactions(address: string) {
 // 	return getClient().lookupAddress(address);
 // }
 
-// export function getLatestBlockNumber() {
-// 	return getClient().getBlockNumber();
-// }
-
 // export function getBlock(hashOrNumber: string | number) {
 // 	return getClient().getBlock(hashOrNumber);
 // }
 
 // export async function getBalance(address: string) {
 // 	return ethers.utils.formatEther(await getClient().getBalance(address));
-// }
-
-// export async function getTransaction(hash: string) {
-// 	return await getClient().getTransaction(hash);
-// 	// return { ...rec,
-// 	// 	value: ethers.utils.formatEther(rec.value),
-// 	// 	gasPrice: ethers.utils.formatEther(rec.gasPrice),
-// 	// 	gasLimit: ethers.utils.formatEther(rec.gasLimit)
-// 	// };
 // }
 
 // export function getLogs(address: string, fromBlock?: number) {

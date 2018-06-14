@@ -18,14 +18,16 @@ Object.entries(config).forEach(([key, value]) => {
 });
 
 function getter(key: string, value: any) {
-	let rep = 5; // This is actually just 3 times, because cli parser takes every config item 2 times
+	let rep = 3; // This is actually just 3 times, because cli parser takes every config item 2 times
 	return () => {
-		logger.debug(`Getting config: ${key}: ${format(value)}...`);
 		if (--rep <= 0) {
+			logger.debug(`Getting config: ${key}: ${format(value)}...`);
 			Object.defineProperty(config, key, {
 				value: value,
 				writable: true
 			});
+		} else {
+			logger.debug(`Getting config: ${key}: ${format(value)}`);
 		}
 		return value;
 	};

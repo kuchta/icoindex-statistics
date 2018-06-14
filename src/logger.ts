@@ -107,26 +107,10 @@ function logMessage(level: string, debug: boolean) {
 		// console.log(`message="${message}", error="${error}", object="${JSON.stringify(object)}"`);
 
 		if (error instanceof Error) {
-			stack = error.stack;
-			if (error instanceof MyError) {
-				if (message) {
-					message = `${message}: ${error.toString()}`;
-				} else {
-					message = error.toString();
-				}
-				if (error.error) {
-					// stack = error.error.stack;
-					message = `${message}: ${error.error.toString()}`;
-				}
-				if (!object && error.object) {
-					object = error.object;
-				}
-			} else {
-				if (message) {
-					message = `${message}: ${error.toString()}`;
-				} else {
-					message = error.toString();
-				}
+			message = getErrorMessage(error, message);
+			stack = getLastError(error).stack;
+			if (!object) {
+				object = getLastErrorObject(error);
 			}
 
 			if (debug && stack) {
@@ -144,6 +128,39 @@ function logMessage(level: string, debug: boolean) {
 
 		return logger;
 	};
+}
+
+function getErrorMessage(error: Error, message?: string): string {
+	let msg;
+	if (message) {
+		msg = `${message}: ${error.toString()}`;
+	} else {
+		msg = error.toString();
+	}
+	if (error instanceof MyError && error.error) {
+		msg = getErrorMessage(error.error, msg);
+	}
+
+	return msg;
+}
+
+function getLastError(error: Error): Error {
+	if (error instanceof MyError && error.error) {
+		return getLastError(error.error);
+	}
+	return error;
+}
+
+function getLastErrorObject(error: Error): Error {
+	let object;
+	if (error instanceof MyError && error.error) {
+		object = getLastErrorObject(error.error);
+	}
+	if (object) {
+		return object;
+	} else {
+		return error['object'];
+	}
 }
 
 function removeFirstLine(str: string) {

@@ -1,5 +1,4 @@
 declare module '*/interfaces' {
-
 	export interface Config {
 		AWS_REGION: string;
 		AWS_ACCESS_ID: string;
@@ -21,7 +20,7 @@ declare module '*/interfaces' {
 
 	export type Option = {
 		option: string;
-		description: string;
+		description?: string;
 	};
 
 	/* My ticker */
@@ -75,6 +74,34 @@ declare module '*/interfaces' {
 		datetime: string[];
 		id?: string[];
 		rate?: number;
+	}
+
+	export interface AddressMessage {
+		address: string;
+		enabled: boolean;
+	}
+
+	export interface Address {
+		address: string;
+		enabled: boolean;
+		lastBlock: number;
+	}
+
+	export interface AddressMap {
+		[address: string]: AddressMapValue
+	}
+
+	export interface AddressMapValue {
+		enabled: boolean,
+		lastBlock: number
+	}
+
+	export interface Transaction {
+		id: string;
+		address: string;
+		blockHeight: number;
+		datetime: string;
+		value: number;
 	}
 }
 

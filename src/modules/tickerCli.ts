@@ -40,7 +40,7 @@ export default async function main(option: {[key: string]: string}) {
 		}
 		if (option.removeTicker) {
 			logger.info(`Removing ticker: "${option.removeTicker}"`);
-			let ret = await deleteItem(option.removeTicker);
+			let ret = await deleteItem('uuid', option.removeTicker);
 			logger.info('ticker deleted', ret);
 		}
 		if (option.searchTickers) {

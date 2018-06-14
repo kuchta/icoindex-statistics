@@ -26,13 +26,16 @@ process.on('rejectionHandled', (promise: Promise<any>) => {
 	unhandledRejections.delete(promise);
 });
 
-let tearDown = false;
 process.on('SIGINT', (/* signal: Signals */) => {
 	readline.clearLine(process.stdout, 0);
 	readline.cursorTo(process.stdout, 0);
-	if (!tearDown) {
-		tearDown = true;
-		setImmediate(() => process.exit(0));
+	if (process.exitCode !== undefined) {
+		logger.warning('Force shutting down...');
+		process.exit();
+	} else {
+		logger.warning('Shutting down...');
+		process.exitCode = 0;
+		process.emit('beforeExit', process.exitCode);
 	}
 });
 
@@ -42,16 +45,16 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 process.on('exit', (code: number) => {
-	if (code !== 0) {
-		logger.warning(`Exiting with error code: ${code}`);
-	}
 	if (unhandledRejections.size > 0) {
 		unhandledRejections.forEach((error) => {
 			logger.warning('unhandledRejection', error);
 		});
-		// if (code === 0) {
-		// 	process.exit(1);
-		// }
+		if (code === 0) {
+			process.exit(1);
+		}
+	}
+	if (code !== 0) {
+		logger.warning(`Exiting with error code: ${code}`);
 	}
 });
 

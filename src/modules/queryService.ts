@@ -39,6 +39,10 @@ export function queryService(host: string, port: number, listening?: (address: s
 	}));
 
 	let server = app.listen(port, host, () => {
+		process.on('beforeExit', () => {
+			server.close();
+		});
+
 		if (listening) {
 			let address = server.address() as AddressInfo;
 			listening(address.address, address.port);
@@ -50,6 +54,7 @@ export function queryService(host: string, port: number, listening?: (address: s
 
 const resolvers = {
 	getTokenPairRate: async (input: TickerInputs) => {
+		logger.info1('Request for getTokenPairRate', input);
 		return input.tickers.map(async ({ exchange, pair, datetime }): Promise<TickerOutput> => {
 			exchange = exchange || 'coinmarketcap';
 			const output: TickerOutput = {
@@ -77,6 +82,7 @@ const resolvers = {
 			} catch (error) {
 				logger.debug(error);
 			} finally {
+				logger.info1('Response for getTokenPairRate', output);
 				return output;
 			}
 		});

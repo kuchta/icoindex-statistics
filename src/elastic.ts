@@ -147,6 +147,7 @@ export async function searchTickers({ query, pair, datetime, exchange }: { query
 	}
 }
 
+/* just for testing */
 export async function createIndex() {
 	try {
 		return await getClient().indices.create({
@@ -176,6 +177,7 @@ export async function createIndex() {
 	}
 }
 
+/* just for testing */
 export async function deleteIndex() {
 	try {
 		return await getClient().indices.delete({
@@ -186,6 +188,7 @@ export async function deleteIndex() {
 	}
 }
 
+/* just for testing */
 export async function removeTicker(id: string) {
 	try {
 		return await getClient().delete({

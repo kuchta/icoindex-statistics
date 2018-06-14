@@ -25,17 +25,17 @@ export default function main(options: any) {
 	}
 }
 
-export function fetchService({ exchange = new coinmarketcap({ timeout: config.EXCHANGE_TIMEOUT }), nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler, takeWhilePredicate = () => true }: {
+export function fetchService({ exchange = new coinmarketcap({ timeout: config.EXCHANGE_TIMEOUT }), stopPredicate = () => false, nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler }: {
 		exchange?: Exchange,
+		stopPredicate?: () => boolean,
 		nextHandler?: (ticker: Ticker) => void,
 		nextThenHandler?: (ticker: Ticker) => void,
 		nextErrorHandler?: (error: any) => void,
 		errorHandler?: (error: any) => void,
-		completeHandler?: () => void,
-		takeWhilePredicate?: (value: any) => boolean } = {} ) {
+		completeHandler?: () => void } = {} ) {
 
 	let observable = interval(config.EXCHANGE_INTERVAL).pipe(
-		takeWhile(takeWhilePredicate),
+		takeWhile(() => !(stopPredicate() || process.exitCode !== undefined)),
 		flatMap(() => exchange.fetchTickers() as Promise<CCXTTickers>),
 		flatMap((data) => Object.values(data)),
 		filter((ticker) => ticker && ticker.close !== undefined),

@@ -23,7 +23,7 @@ function getClient(): SNS {
 	}
 }
 
-export async function sendMessage(message: object) {
+export async function sendMessage<T>(message: T) {
 	try {
 		await getClient().publish({
 			TopicArn: config.AWS_SNS_TOPIC,
