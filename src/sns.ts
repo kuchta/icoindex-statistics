@@ -3,7 +3,6 @@ import { SNS } from 'aws-sdk';
 import logger from './logger';
 import config from './config';
 import { MyError } from './errors';
-import { Ticker } from './interfaces';
 
 let client: SNS | null = null;
 

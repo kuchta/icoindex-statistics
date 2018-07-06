@@ -64,14 +64,13 @@ commander
 	.usage('[options] <command> [options]')
 	// @ts-ignore: 'v' is declared but its value is never read.
 	.option('-v, --verbose', 'increase verbosity', (v, total) => total + 1, 0)
-	.option('-d, --debug', 'enable debug messages');
-	// .on('--help', () => {
-	// 	console.log('');
-	// 	console.log('  Info:');
-	// 	console.log('');
-	// 	console.log('    If you want to terminate the program, hit Ctrl+C twice');
-	//   });
-	// .addImplicitHelpCommand();
+	.option('-d, --debug', 'enable debug messages')
+	.on('--help', () => {
+		console.log('');
+		console.log('  Info:');
+		console.log('');
+		console.log('    If you want to terminate the program, hit Ctrl+C and wait for it to shutdown gracefully, hit it twice to shutdown forcefully');
+	  });
 
 /* Make options from configuration variables */
 Object.keys(config).forEach((key) => {

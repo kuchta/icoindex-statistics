@@ -84,16 +84,13 @@ declare module '*/interfaces' {
 	export interface Address {
 		address: string;
 		enabled: boolean;
-		lastBlock: number;
+		firstBlock: number;
+		complete: boolean;
 	}
 
 	export interface AddressMap {
-		[address: string]: AddressMapValue
-	}
-
-	export interface AddressMapValue {
-		enabled: boolean,
-		lastBlock: number
+		lastBlock: number;
+		[address: string]: Address
 	}
 
 	export interface Transaction {

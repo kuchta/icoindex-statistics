@@ -1,13 +1,12 @@
-import { Server } from 'http';
 import { AddressInfo } from 'net';
 import express from 'express';
 import graphqlHTTP from 'express-graphql';
-import { buildSchema, GraphQLSchema, GraphQLObjectType, GraphQLString } from 'graphql';
+import { buildSchema } from 'graphql';
 
 import logger from '../logger';
 import config from '../config';
 import { Option, TickerInputs, TickerOutput } from '../interfaces';
-import { ping, getTicker } from '../elastic';
+import { getTicker } from '../elastic';
 import schema from '../../schema.gql';
 import { MyError } from '../errors';
 

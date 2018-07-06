@@ -1,4 +1,4 @@
-import { Subscription, interval, pipe } from 'rxjs';
+import { interval } from 'rxjs';
 import { flatMap, filter, takeWhile } from 'rxjs/operators';
 import uuidv4 from 'uuid/v4';
 
@@ -36,7 +36,7 @@ export function storeService({ fetch = receiveMessage, stopPredicate = () => fal
 
 	let observable = interval(config.DYNAMO_INTERVAL).pipe(
 		takeWhile(() => !(stopPredicate() || process.exitCode !== undefined)),
-		flatMap(() => fetch(2)),
+		flatMap(() => fetch()),
 		filter(Boolean)
 	);
 

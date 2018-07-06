@@ -22,7 +22,7 @@ function getClient(): DynamoDB {
 	}
 }
 
-export async function putItem<T>(item: T) {
+export async function putItem(item: object) {
 	try {
 		await getClient().putItem({
 			TableName: config.AWS_DYNAMO_TABLE,
@@ -33,7 +33,7 @@ export async function putItem<T>(item: T) {
 	}
 }
 
-export async function getItem<T>(keyName: string, keyValue: string) {
+export async function getItem(keyName: string, keyValue: string) {
 	try {
 		let ret = await getClient().getItem({
 			TableName: config.AWS_DYNAMO_TABLE,
@@ -45,7 +45,7 @@ export async function getItem<T>(keyName: string, keyValue: string) {
 		}).promise();
 
 		if (ret.Item) {
-			return DynamoDB.Converter.unmarshall(ret.Item) as T;
+			return DynamoDB.Converter.unmarshall(ret.Item);
 		}
 
 		return null;
@@ -61,7 +61,7 @@ export async function scan(keyName: string) {
 			return result.Items.reduce((acc, value) => {
 				let obj = DynamoDB.Converter.unmarshall(value);
 				let key = obj[keyName];
-				delete obj[keyName];
+				// delete obj[keyName];
 				acc[key] = obj;
 				return acc;
 			}, {});
@@ -96,52 +96,4 @@ export async function describeTable() {
 	} catch (error) {
 		throw new MyError('Dynamo describeTable failed', { error });
 	}
-}
-
-function objectToPutItemInputAttributeMap<T>(obj: T): DynamoDB.PutItemInputAttributeMap {
-	let item: any = {};
-	Object.entries(obj).forEach(([key, value]) => {
-		if (value == null) {
-			item[key] = { NULL: true };
-		} else if (typeof value === 'boolean') {
-			item[key] = { BOOL: value };
-		} else if (typeof value === 'number') {
-			item[key] = { N: String(value) };
-		} else if (typeof value === 'string') {
-			item[key] = { S: value };
-		} else if (typeof value === 'object') {
-			if (Array.isArray(value)) {
-				item[key] = { L: value };
-			} else {
-				item[key] = { M: objectToPutItemInputAttributeMap(value) };
-			}
-		} else {
-			throw new MyError(`objectToPutItemInputAttributeMap invalid value "${value}" of type "${typeof value}"`);
-		}
-	});
-	return item;
-}
-function attributeMapToObject<T>(item: DynamoDB.MapAttributeValue) {
-	logger.debug('attributeMapToObject', item);
-	let obj = {} as T;
-	Object.entries(item).forEach(([key, value]) => {
-		if ('NULL' in value) {
-			obj[key] = null;
-		} else if ('BOOL' in value) {
-			obj[key] = Boolean(value.BOOL);
-		} else if ('N' in value) {
-			obj[key] = Number(value);
-		} else if ('S' in value) {
-			obj[key] = value;
-		} else if ('M' in value) {
-			if (value.M) {
-				obj[key] = attributeMapToObject(value.M);
-			} else {
-				obj[key] = value.M;
-			}
-		} else {
-			throw new MyError(`toPutItemInputAttributeMap invalid value "${value}" of type "${typeof value}"`);
-		}
-	});
-	return obj;
 }

@@ -1,13 +1,9 @@
 import R from 'ramda';
 import test, { Test } from 'tape';
-import { from } from 'rxjs';
-import ccxt from 'ccxt';
 import { GraphQLClient } from 'graphql-request';
 
-import logger from '../logger';
 import config from '../config';
-import { MyError } from '../errors';
-import { Option, CCXTTicker, CCXTTickers, Ticker, Exchange, TickerOutput, TickerOutputs, TestQuery } from '../interfaces';
+import { Option, CCXTTickers, Ticker, Exchange, TickerOutput, TickerOutputs } from '../interfaces';
 
 import { fetchService } from './tickerFetchService';
 import { storeService } from './storeService';

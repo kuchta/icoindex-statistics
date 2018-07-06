@@ -1,14 +1,13 @@
 import moment from 'moment';
-import { Client, ConfigOptions, Explanation, SearchResponse, DeleteDocumentResponse } from 'elasticsearch';
+import { Client } from 'elasticsearch';
 import AWS from 'aws-sdk';
 import { integer } from 'aws-sdk/clients/cloudfront';
 import httpAWSES from 'http-aws-es';
 
-import logger, { MyLogger, LeveledLogMethod } from './logger';
+import logger, { LeveledLogMethod } from './logger';
 import config from './config';
 import { MyError } from './errors';
-import { Ticker, TickerOutput } from './interfaces';
-import { DescribeTrustedAdvisorCheckRefreshStatusesRequest } from 'aws-sdk/clients/support';
+import { Ticker } from './interfaces';
 
 class LogToMyLogger {
 	error: LeveledLogMethod;
@@ -50,11 +49,6 @@ function getClient(): Client {
 			},
 			connectionClass: httpAWSES,
 			// sniffOnStart: true,
-			// amazonES: {
-			//   region: config.AWS_REGION,
-			//   accessKey: config.AWS_ACCESS_ID,
-			//   secretKey: config.AWS_SECRET_KEY,
-			// },
 			log: LogToMyLogger,
 			maxRetries: 10
 		});

@@ -2,7 +2,7 @@ import logger from '../logger';
 import { Option } from '../interfaces';
 import { sendMessage } from '../sns';
 import { purgeQueue } from '../sqs';
-import { putItem, deleteItem } from '../dynamo';
+import { deleteItem } from '../dynamo';
 import { createIndex, deleteIndex, searchTickers } from '../elastic';
 import { MyError } from '../errors';
 

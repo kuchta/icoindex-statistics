@@ -1,4 +1,4 @@
-import { Subscription, Observable, interval, pipe } from 'rxjs';
+import { interval } from 'rxjs';
 import { map, flatMap, filter, takeWhile } from 'rxjs/operators';
 import { coinmarketcap } from 'ccxt';
 

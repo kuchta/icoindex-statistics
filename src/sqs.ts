@@ -3,7 +3,6 @@ import { SQS } from 'aws-sdk';
 import logger from './logger';
 import config from './config';
 import { MyError } from './errors';
-import { Ticker } from './interfaces';
 
 let client: SQS | null = null;
 
@@ -28,11 +27,11 @@ function getClient(): SQS {
 	}
 }
 
-export async function receiveMessage<T>(timeout?: number) {
+export async function receiveMessage<T>(visibilityTimeout?: number) {
 	try {
-		let params = { QueueUrl: config.AWS_SQS_QUEUE_URL };
-		if (timeout) {
-			params['WaitTimeSeconds'] = timeout;
+		let params = { QueueUrl: config.AWS_SQS_QUEUE_URL, WaitTimeSeconds: 0 };
+		if (visibilityTimeout != null) {
+			params['VisibilityTimeout'] = visibilityTimeout;
 		}
 		let data = await getClient().receiveMessage(params).promise();
 
