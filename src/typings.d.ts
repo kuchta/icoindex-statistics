@@ -16,6 +16,7 @@ declare module '*/interfaces' {
 		EXCHANGE_TIMEOUT: number;
 		MAX_DATETIME_PROXIMITY: string;
 		BLOCKCYPHER_TOKEN: string;
+		ETHEREUM_HOST: string;
 	}
 
 	export type Option = {
@@ -63,7 +64,7 @@ declare module '*/interfaces' {
 		datetime: string;
 	}
 
-	/* GraphQL output */
+	/* GraphQL getTokenPairRate output */
 	export interface TickerOutputs {
 		getTokenPairRate: TickerOutput[];
 	}
@@ -85,11 +86,12 @@ declare module '*/interfaces' {
 		address: string;
 		enabled: boolean;
 		firstBlock: number;
-		complete: boolean;
+		lastBlock?: number; // Only used is address is disabled
+		complete: boolean; // All transactions loaded till the first transaction in the history (firstBlock)
 	}
 
 	export interface AddressMap {
-		lastBlock: number;
+		lastBlock: { value: number };
 		[address: string]: Address
 	}
 
@@ -99,6 +101,26 @@ declare module '*/interfaces' {
 		blockHeight: number;
 		datetime: string;
 		value: number;
+	}
+
+	/* GraphQL getAddressTransactions input */
+	export interface AddressInputs {
+		addresses: AddressInput[];
+	}
+
+	export interface AddressInput {
+		address: string;
+		startDatetime: string;
+		endDatetime: string;
+		granularity: string;
+	}
+
+	export interface TransactionOutput {
+		address: string;
+		receivedAmount?: number[];
+		receivedCount?: number[];
+		sentAmount?: number[];
+		sentCount?: number[];
 	}
 }
 

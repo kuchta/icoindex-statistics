@@ -91,7 +91,7 @@ export default class BlockCypher {
 			}
 			await tokenBucket.removeTokens(1);
 			const url = `${this.url}${path}`;
-			logger.debug(`Calling BlockCyper API: ${method.toUpperCase()} ${url} with params:`, params);
+			logger.debug(`Calling BlockCypher API: ${method.toUpperCase()} ${url} with params:`, params);
 			return request[method]({ ...params, strictSSL: true, json: true, token, url }) as T;
 		} catch (error) {
 			throw new MyError('BlockCypher request failed', { error });

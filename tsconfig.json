@@ -22,7 +22,7 @@
 		"noImplicitThis": true,
 		"noLib": false,
 		// "noUnusedLocals": true,
-		"noUnusedParameters": true,
+		// "noUnusedParameters": false,
 		"outDir": "bin",
 		"pretty": true,
 		// "reflectionEnabled": true,

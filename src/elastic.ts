@@ -8,6 +8,7 @@ import logger, { LeveledLogMethod } from './logger';
 import config from './config';
 import { MyError } from './errors';
 import { Ticker } from './interfaces';
+import { Transaction } from 'web3/types';
 
 class LogToMyLogger {
 	error: LeveledLogMethod;
@@ -47,6 +48,7 @@ function getClient(): Client {
 				host: config.AWS_ELASTIC_HOST,
 				port: 443,
 			},
+			requestTimeout: 120000,
 			connectionClass: httpAWSES,
 			// sniffOnStart: true,
 			log: LogToMyLogger,
@@ -141,27 +143,65 @@ export async function searchTickers({ query, pair, datetime, exchange }: { query
 	}
 }
 
+export async function searchTransactions(address: string, startDatetime: string, endDatetime: string, interval: string) {
+	let query = {
+		// size: 0,
+		query: {
+			// match_all: {}
+			term: { address }
+		},
+		// aggregations: {
+		// 	transactions: {
+		// 		date_histogram: {
+		// 			field: 'datetime',
+		// 			interval,
+		// 			// format: 'yyyy-MM-dd',
+		// 			min_doc_count: 0,
+		// 			extended_bounds: {
+		// 				min: startDatetime,
+		// 				max: endDatetime
+		// 			}
+		// 		},
+		// 		aggregations: {
+		// 			bucket_stats: {
+		// 				stats: {
+		// 					field: 'value'
+		// 				}
+		// 			}
+		// 		}
+		// 	}
+		// }
+	};
+
+	try {
+		let response = await getClient().search<Transaction>({
+			index: config.AWS_ELASTIC_INDEX,
+			type: config.AWS_ELASTIC_TYPE,
+			body: query,
+			// timeout: '1m'
+		});
+
+		return response;
+
+		// if (response.hits.hits.length > 0) {
+		// 	return response.hits.hits;
+		// } else {
+		// 	return null;
+		// }
+	} catch (error) {
+		throw new MyError('ES search failed', { error });
+	}
+}
+
 /* just for testing */
-export async function createIndex() {
+export async function createIndex(properties: object) {
 	try {
 		return await getClient().indices.create({
 			index: config.AWS_ELASTIC_INDEX,
 			body: {
 				mappings: {
 					[config.AWS_ELASTIC_TYPE]: {
-						properties: {
-							pair: {
-								type: 'string',
-								index: 'not_analyzed'
-							},
-							datetime: {
-								type: 'date',
-								format: 'strict_date_optional_time'
-							},
-							last: {
-								type: 'double'
-							}
-						}
+						properties
 					}
 				}
 			}
@@ -176,19 +216,6 @@ export async function deleteIndex() {
 	try {
 		return await getClient().indices.delete({
 			index: config.AWS_ELASTIC_INDEX,
-		});
-	} catch (error) {
-		throw new MyError('ES delete failed', { error });
-	}
-}
-
-/* just for testing */
-export async function removeTicker(id: string) {
-	try {
-		return await getClient().delete({
-			index: config.AWS_ELASTIC_INDEX,
-			type: config.AWS_ELASTIC_TYPE,
-			id: id
 		});
 	} catch (error) {
 		throw new MyError('ES delete failed', { error });

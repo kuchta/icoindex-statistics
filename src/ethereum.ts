@@ -1,12 +1,11 @@
-import moment from 'moment';
 // import Web3 from 'web3';
-import ethers, { providers, Transaction } from 'ethers';
+import ethers, { providers } from 'ethers';
 
 import config from './config';
 import logger from './logger';
 import { MyError } from './errors';
 
-type Filter = { address: string; fromBlock?: number, topics?: string[] };
+// type Filter = { address: string; fromBlock?: number, topics?: string[] };
 
 let client: any = null;
 
@@ -62,7 +61,7 @@ export async function getAddressesMovements(addresses: string[], startBlock: num
 					if (foundAddresses.includes(transaction.from)) {
 						transactions[transaction.from] = transactions[transaction.from] ? transactions[transaction.from] : 0 - transaction.value.toNumber();
 					} else  {
-						transactions[transaction.to] = transactions[transaction.to] ? transactions[transaction.to] : 0 + transaction.value.toNumber();
+						transactions[transaction.to] = transactions[transaction.to] ? transactions[transaction.to] : transaction.value.toNumber();
 					}
 				}
 			});

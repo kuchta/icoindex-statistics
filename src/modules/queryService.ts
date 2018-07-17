@@ -5,7 +5,7 @@ import { buildSchema } from 'graphql';
 
 import logger from '../logger';
 import config from '../config';
-import { Option, TickerInputs, TickerOutput } from '../interfaces';
+import { Option, TickerInputs, TickerOutput, AddressInputs, TransactionOutput } from '../interfaces';
 import { getTicker } from '../elastic';
 import schema from '../../schema.gql';
 import { MyError } from '../errors';
@@ -52,38 +52,57 @@ export function queryService(host: string, port: number, listening?: (address: s
 }
 
 const resolvers = {
-	getTokenPairRate: async (input: TickerInputs) => {
-		logger.info1('Request for getTokenPairRate', input);
-		return input.tickers.map(async ({ exchange, pair, datetime }): Promise<TickerOutput> => {
-			exchange = exchange || 'coinmarketcap';
-			const output: TickerOutput = {
-				exchange: exchange,
-				pair: pair,
-				datetime: [ datetime ],
-			};
-			try {
-				let tickers = pair.split('/');
-				if (tickers.length !== 2) {
-					throw new MyError(`Invalid pair format supplied: "${pair}"`);
-				}
-				if (tickers[1] === 'USD') {
-					let ret = await getTicker(pair, datetime, exchange);
-					output.datetime = [ ret.datetime ];
-					output.id = [ ret.uuid ];
-					output.rate = ret.rate;
-				} else {
-					let first = await getTicker(`${tickers[0]}/USD`, datetime, exchange);
-					let second = await getTicker(`${tickers[1]}/USD`, datetime, exchange);
-					output.datetime = [ first.datetime, second.datetime ];
-					output.id = [ first.uuid, second.uuid ];
-					output.rate = first.rate / second.rate;
-				}
-			} catch (error) {
-				logger.debug(error);
-			} finally {
-				logger.info1('Response for getTokenPairRate', output);
-				return output;
-			}
-		});
-	}
+	getTokenPairRate,
+	getAddressTransactions
 };
+
+async function getTokenPairRate(input: TickerInputs) {
+	logger.info1('Request for getTokenPairRate', input);
+	return input.tickers.map(async ({ exchange, pair, datetime }): Promise<TickerOutput> => {
+		exchange = exchange || 'coinmarketcap';
+		const output: TickerOutput = {
+			exchange: exchange,
+			pair: pair,
+			datetime: [ datetime ],
+		};
+		try {
+			let tickers = pair.split('/');
+			if (tickers.length !== 2) {
+				throw new MyError(`Invalid pair format supplied: "${pair}"`);
+			}
+			if (tickers[1] === 'USD') {
+				let ret = await getTicker(pair, datetime, exchange);
+				output.datetime = [ ret.datetime ];
+				output.id = [ ret.uuid ];
+				output.rate = ret.rate;
+			} else {
+				let first = await getTicker(`${tickers[0]}/USD`, datetime, exchange);
+				let second = await getTicker(`${tickers[1]}/USD`, datetime, exchange);
+				output.datetime = [ first.datetime, second.datetime ];
+				output.id = [ first.uuid, second.uuid ];
+				output.rate = first.rate / second.rate;
+			}
+		} catch (error) {
+			logger.error(`getTokenPairRate for pair ${pair} failed`, error);
+		} finally {
+			logger.info1('Response for getTokenPairRate', output);
+			return output;
+		}
+	});
+}
+
+async function getAddressTransactions(input: AddressInputs) {
+	logger.info1('Request for getAddressTransactions', input);
+	return input.addresses.map(async ({ address, startDatetime, endDatetime, granularity }): Promise<TransactionOutput> => {
+		const output: TransactionOutput = {
+			address,
+		};
+		try {
+		} catch (error) {
+			logger.error(`getAddressTransactions for address ${address} failed`, error);
+		} finally {
+			logger.info1('Response for getAddressTransactions', output);
+			return output;
+		}
+	});
+}

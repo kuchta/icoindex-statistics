@@ -8,28 +8,17 @@ import { MyError } from '../errors';
 
 export const description = 'Ticker Management Utility';
 export const options: Option[] = [
-	{ option: '-C, --create-index', description: 'create elastic index' },
-	{ option: '-D, --delete-index', description: 'delete elastic index' },
-	{ option: '-P, --purge-queue', description: 'purge SQS queue' },
 	{ option: '-I, --insert-ticker <pair datetime last>', description: 'send ticker through SNS' },
 	{ option: '-R, --remove-ticker <id>', description: 'remove ticker from dynamo' },
 	{ option: '-S, --search-tickers [pair datetime [exchange]]', description: 'search tickers in elastic' },
+	{ option: '-P, --purge-queue', description: 'purge SQS queue' },
+	{ option: '-C, --create-index', description: 'create elastic index' },
+	{ option: '-D, --delete-index', description: 'delete elastic index' },
 ];
 
 export default async function main(option: {[key: string]: string}) {
 	try {
-		if (option.createIndex) {
-			await createIndex();
-			logger.info('index create');
-		}
-		if (option.deleteIndex) {
-			await deleteIndex();
-			logger.info('index deleted');
-		}
-		if (option.purgeQueue) {
-			await purgeQueue();
-			logger.info('queue purged');
-		}
+
 		if (option.insertTicker) {
 			let args = option.insertTicker.split(' ');
 			if (args.length !== 3 || parseFloat(args[3]) === NaN) {
@@ -70,6 +59,35 @@ export default async function main(option: {[key: string]: string}) {
 			} else {
 				logger.info('no results');
 			}
+		}
+		if (option.purgeQueue) {
+			await purgeQueue();
+			logger.info('queue purged');
+		}
+		if (option.createIndex) {
+			await createIndex({
+				uuid: {
+					type: 'string'
+				},
+				exchange: {
+					type: 'string'
+				},
+				pair: {
+					type: 'string',
+				},
+				datetime: {
+					type: 'date',
+					format: 'strict_date_optional_time'
+				},
+				rate: {
+					type: 'double'
+				}
+			});
+			logger.info('index created');
+		}
+		if (option.deleteIndex) {
+			await deleteIndex();
+			logger.info('index deleted');
 		}
 	} catch (error) {
 		logger.error('command failed', error);
