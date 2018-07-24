@@ -128,8 +128,8 @@ export async function searchTickers({ query, pair, datetime, exchange }: { query
 
 	try {
 		let response = await getClient().search<Ticker>({
-			index: config.AWS_ELASTIC_INDEX,
-			type: config.AWS_ELASTIC_TYPE,
+			index: config.AWS_ELASTIC_TICKER_INDEX,
+			type: config.AWS_ELASTIC_TICKER_TYPE,
 			body: query
 		});
 
@@ -143,64 +143,74 @@ export async function searchTickers({ query, pair, datetime, exchange }: { query
 	}
 }
 
-export async function searchTransactions(address: string, startDatetime: string, endDatetime: string, interval: string) {
+export async function getAddressAggregations(address: string, startDatetime: string, endDatetime: string, interval: string, received = true) {
 	let query = {
-		// size: 0,
+		size: 0,
 		query: {
-			// match_all: {}
-			term: { address }
+			and: [{
+				term: received ? { to: address } : { from: address }
+			}, {
+				range: {
+					datetime: {
+						gte: startDatetime,
+						lte: endDatetime,
+					}
+				}
+			}]
 		},
-		// aggregations: {
-		// 	transactions: {
-		// 		date_histogram: {
-		// 			field: 'datetime',
-		// 			interval,
-		// 			// format: 'yyyy-MM-dd',
-		// 			min_doc_count: 0,
-		// 			extended_bounds: {
-		// 				min: startDatetime,
-		// 				max: endDatetime
-		// 			}
-		// 		},
-		// 		aggregations: {
-		// 			bucket_stats: {
-		// 				stats: {
-		// 					field: 'value'
-		// 				}
-		// 			}
-		// 		}
-		// 	}
-		// }
+		aggregations: {
+			transactions: {
+				date_histogram: {
+					field: 'datetime',
+					interval,
+					// format: 'yyyy-MM-dd',
+					min_doc_count: 0,
+					extended_bounds: {
+						min: startDatetime,
+						max: endDatetime
+					}
+				},
+				aggregations: {
+					bucket_stats: {
+						stats: {
+							field: 'value'
+						}
+					}
+				}
+			}
+		}
 	};
 
+	let response = await searchTransactions(query);
+
+	return response && response.aggregations && response.aggregations.transactions && response.aggregations.transactions.buckets as { bucket_stats: { count: 0, min: null, max: null, avg: null, sum: null } }[];
+}
+
+export async function searchTransactions(query: object) {
 	try {
 		let response = await getClient().search<Transaction>({
-			index: config.AWS_ELASTIC_INDEX,
-			type: config.AWS_ELASTIC_TYPE,
+			index: config.AWS_ELASTIC_TRANSACTION_INDEX,
+			type: config.AWS_ELASTIC_TRANSACTION_TYPE,
 			body: query,
 			// timeout: '1m'
 		});
 
-		return response;
+		// logger.debug('response', response);
 
-		// if (response.hits.hits.length > 0) {
-		// 	return response.hits.hits;
-		// } else {
-		// 	return null;
-		// }
+		return response;
 	} catch (error) {
 		throw new MyError('ES search failed', { error });
 	}
 }
 
 /* just for testing */
-export async function createIndex(properties: object) {
+export async function createIndex(index: string, indexType: string, properties: object) {
 	try {
 		return await getClient().indices.create({
-			index: config.AWS_ELASTIC_INDEX,
+			index: index,
 			body: {
 				mappings: {
-					[config.AWS_ELASTIC_TYPE]: {
+					[indexType]: {
 						properties
 					}
 				}
@@ -212,10 +222,10 @@ export async function createIndex(properties: object) {
 }
 
 /* just for testing */
-export async function deleteIndex() {
+export async function deleteIndex(index: string) {
 	try {
 		return await getClient().indices.delete({
-			index: config.AWS_ELASTIC_INDEX,
+			index: index,
 		});
 	} catch (error) {
 		throw new MyError('ES delete failed', { error });

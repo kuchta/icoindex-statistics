@@ -1,41 +1,38 @@
 import * as readline from 'readline';
 
 import R from 'ramda';
-import Web3 from 'web3';
 
 import logger from '../logger';
 import config from '../config';
-import { Option, AddressMap, AddressMessage, Transaction } from '../interfaces';
-import { putItem, scan } from '../dynamo';
+import { MyError } from '../errors';
+import { Option, Address, AddressMessage, Transaction } from '../interfaces';
+import { putItem } from '../dynamo';
 import { receiveMessage, deleteMessage } from '../sqs';
 import { sendMessage } from '../sns';
-import BlockCypher, { AddressOptions, Address as BcAddress } from '../blockcypher';
+import { Addresses } from '../addresses';
+import { getLatestBlockNumber, getBlock, getTransaction, getAddressTransactions, isAddress, } from '../ethereum';
 
 export const description = 'Fetch address transactions';
 export const options: Option[] = [
 ];
 
-let addresses: AddressMap;
-let lastBlock: number;
-
-const web3 = new Web3(new Web3.providers.HttpProvider(config.ETHEREUM_HOST));
+const addresses = new Addresses();
 
 process.on('SIGQUIT', () => {
 	readline.clearLine(process.stdout, 0);
 	readline.cursorTo(process.stdout, 0);
-	logger.info('addresses', addresses);
+	logger.info1('addresses', addresses.getAll());
 });
 
 export default async function main(/* options: any */) {
-	// let latestBlock = await getClient().getBlockNumber();
-	let latestBlock = await web3.eth.getBlockNumber();
 
-	await init(latestBlock);
+	await addresses.init();
+
+	logger.info(`lastBlock: ${addresses.lastBlock}`);
+	logger.info('addresses', addresses.getAll());
 
 	while (true) {
 		let startTime = Date.now();
-
-		// latestBlock = await web3.eth.getBlockNumber();
 
 		try {
 			if (process.exitCode !== undefined) {
@@ -69,27 +66,7 @@ export default async function main(/* options: any */) {
 			logger.debug(`sleeping for ${time / 1000} sec`);
 			await sleep(time);
 		}
-
-		// latestBlock = await getClient().getBlockNumber();
-		// latestBlock = await web3.eth.getBlockNumber();
 	}
-}
-
-async function init(latestBlock: number) {
-	addresses = await scan('address') as AddressMap;
-	if ('lastBlock' in addresses && addresses.lastBlock.value) {
-		lastBlock = addresses.lastBlock.value;
-		delete addresses.lastBlock;
-	} else {
-		lastBlock = latestBlock;
-		R.forEachObjIndexed<AddressMap>((address) => {
-			address.firstBlock = lastBlock;
-			address.complete = false;
-		}, addresses);
-		putItem({ address: 'lastBlock', value: lastBlock });
-	}
-	logger.info(`lastBlock: ${lastBlock}`);
-	logger.info('addresses', addresses);
 }
 
 async function checkAddressQueue() {
@@ -106,49 +83,22 @@ async function checkAddressQueue() {
 			logger.warning(`Message doesn't contain required attribute "enabled"`, message.body);
 		} else {
 			try {
-				let { address, enabled } = message.body;
-				if (enabled && address in addresses && addresses[address].enabled) {
-					logger.warning('checkAndLoadNewAddresses: Requested to enable address already enabled. Skipping...');
-				} else if (!enabled && !(address in addresses && addresses[address].enabled)) {
-					logger.warning('checkAndLoadNewAddresses: Requested to disable address not enabled. Skipping...');
-				} else if (!web3.utils.isAddress(address)) {
-					logger.warning(`checkAndLoadNewAddresses: Address ${address} is not valid Ethereum address. Skipping...`);
+				if (message.body.enabled) {
+					addresses.enable(message.body.address);
+					await fetchAddressHistory(addresses.get(message.body.address));
 				} else {
-					if (enabled) {
-						if (address in addresses && addresses[address].enabled) {
-							logger.warning(`address ${address} already enabled`);
-						} else {
-							/* Enabling address */
-							addresses[address] = {
-								address,
-								enabled: true,
-								firstBlock: lastBlock,
-								complete: false
-							};
-							putItem(addresses[address]);
-							await fetchAddressHistory(address);
-						}
-					} else {
-						if (address in addresses && !addresses[address].enabled) {
-							logger.warning(`address ${address} already disabled`);
-						} else {
-							/* Disabling address */
-							addresses[address].enabled = false;
-							addresses[address].lastBlock = lastBlock;
-							putItem(addresses[address]);
-						}
-					}
+					addresses.disable(message.body.address);
 				}
-				deleteMessage(message.receiptHandle);
 			} catch (error) {
 				logger.error('checkAddressQueue failed', error);
 			}
+			deleteMessage(message.receiptHandle);
 		}
 	}
 }
 
 async function loadUncompletedAddresses() {
-	let uncompletedAddreses = Object.keys(R.filter(address => !address.complete, addresses));
+	let uncompletedAddreses = addresses.getUncompleted();
 
 	if (uncompletedAddreses.length > 0) {
 		logger.info('completeAddresses: Loading uncompleted history for addresses', uncompletedAddreses);
@@ -158,98 +108,79 @@ async function loadUncompletedAddresses() {
 	}
 }
 
-const blockCypher = new BlockCypher('eth', 'main');
-const RECORDS_PER_PAGE = 2000;
+async function fetchAddressHistory(address: Address) {
+	logger.info(`Fetching history for address "${address.address}"`);
 
-async function fetchAddressHistory(address: string) {
-	logger.info(`Fetching history for address "${address}"`);
-
-	let addressObj: BcAddress;
-	const params: AddressOptions = { limit: 2000 };
+	let transactions: Transaction[];
 
 	let i = 0;
-	do {
-		addressObj = await blockCypher.getAddress(address, { ...params, before: addresses[address].firstBlock });
+	try {
+		do {
+			transactions = await getAddressTransactions(address.address, address.firstBlock - 1);
 
-		logger.info(`Fetching history for address ${address} before block #${addresses[address].firstBlock}: Page ${++i}/${Math.ceil(addressObj.n_tx / addressObj.txrefs.length)} containing ${addressObj.txrefs.length} transactions`);
+			logger.info(`Retrieved transactions history for address ${address.address} before block #${address.firstBlock} containing ${transactions.length} transactions`);
 
-		// logger.debug('txrefs', addressObj.txrefs);
-
-		for (let transaction of addressObj.txrefs) {
-			try {
-				await saveTransaction({
-					id: transaction.tx_hash,
-					address,
-					blockHeight: transaction.block_height,
-					datetime: transaction.confirmed,
-					value: transaction.value
-				} as Transaction);
-				addresses[address].firstBlock = transaction.block_height;
-			} catch (error) {
-				logger.error('loadNewAddress: saving transaction failed:', error);
+			for (let transaction of transactions) {
+				try {
+					if (transaction.value > 0) {
+						await saveTransaction(transaction);
+						address.firstBlock = transaction.blockHeight;
+					}
+				} catch (error) {
+					logger.error('loadNewAddress: saving transaction failed:', error);
+				}
 			}
-		}
 
-		if (!addressObj.hasMore) {
-			addresses[address].complete = true;
-		}
-		putItem(addresses[address]);
-	} while (addressObj.hasMore && process.exitCode === undefined);
+			if (transactions.length <= 0) {
+				address.complete = true;
+			}
+			putItem(address);
+		} while (transactions.length && process.exitCode === undefined);
+	} catch (error) {
+		logger.error('fetchAddressHistory error:', error);
+	}
 }
 
 async function syncAddresses() {
-	let latestBlock = await web3.eth.getBlockNumber();
+	let latestBlock = await getLatestBlockNumber();
 
-	if (latestBlock <= lastBlock) {
+	if (latestBlock <= addresses.lastBlock) {
 		return;
 	}
 
-	logger.info(`Synchronizing addresses to latest block #${latestBlock} from block #${lastBlock}`);
+	logger.info(`Synchronizing addresses to latest block #${latestBlock} from block #${addresses.lastBlock}`);
 
-	let upToBlock = lastBlock + 10;
+	let upToBlock = addresses.lastBlock + 10;
 
-	for (let blockNumber = lastBlock + 1; blockNumber <= upToBlock && blockNumber <= latestBlock && process.exitCode === undefined; blockNumber++) {
+	for (let blockNumber = addresses.lastBlock + 1; blockNumber <= upToBlock && blockNumber <= latestBlock && process.exitCode === undefined; blockNumber++) {
 		// logger.debug(`blockNumber: ${blockNumber}, lastBlock + 10: ${lastBlock + 10}`);
 		try {
 			// let block = await client.getBlock(blockNumber);
-			let block = await web3.eth.getBlock(blockNumber, true);
+			let block = await getBlock(blockNumber, true);
 			logger.info(`Procesing block #${blockNumber} containing ${block.transactions.length} transactions`);
 			for (let transaction of block.transactions) {
 				// let transaction = await client.getTransaction(txid);
-				if (transaction.from in addresses && addresses[transaction.from].enabled) {
+				if ((transaction.from in addresses && addresses[transaction.from].enabled)
+						|| (transaction.to in addresses && addresses[transaction.to].enabled)) {
 					saveTransaction({
-						id: transaction.hash,
-						address: transaction.from,
-						blockHeight: blockNumber,
-						datetime: (new Date(block.timestamp * 1000)).toISOString(),
-						value: -parseFloat(transaction.value)
-					} as Transaction);
-				}
-				if (transaction.to in addresses && addresses[transaction.to].enabled) {
-					saveTransaction({
-						id: transaction.hash,
-						address: transaction.to,
+						uuid: transaction.hash,
+						from: transaction.from,
+						to: transaction.to,
 						blockHeight: blockNumber,
 						datetime: (new Date(block.timestamp * 1000)).toISOString(),
 						value: parseFloat(transaction.value)
 					} as Transaction);
 				}
 			}
-			updateLastBlock(blockNumber);
+			addresses.lastBlock = blockNumber;
 		} catch (error) {
 			logger.error('syncAddresses error:', error);
 		}
 	}
 }
 
-function updateLastBlock(blockNumber: number) {
-	// logger.debug(`Updating last block #${blockNumber}`);
-	lastBlock = blockNumber;
-	putItem({ address: 'lastBlock', value: lastBlock });
-}
-
 function saveTransaction(transaction: Transaction) {
-	logger.info1(`saving transaction ${transaction.id} from block #${transaction.blockHeight}`);
+	logger.info1(`saving transaction ${transaction.uuid} from block #${transaction.blockHeight}`);
 	sendMessage(transaction);
 }
 

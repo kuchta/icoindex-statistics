@@ -7,16 +7,19 @@ declare module '*/interfaces' {
 		AWS_SQS_QUEUE_URL: string;
 		AWS_DYNAMO_TABLE: string;
 		AWS_ELASTIC_HOST: string;
-		AWS_ELASTIC_INDEX: string;
-		AWS_ELASTIC_TYPE: string;
+		AWS_ELASTIC_TICKER_INDEX: string;
+		AWS_ELASTIC_TICKER_TYPE: string;
 		GRAPHQL_HOST: string;
+		AWS_ELASTIC_TRANSACTION_INDEX: string;
+		AWS_ELASTIC_TRANSACTION_TYPE: string;
 		GRAPHQL_PORT: number;
 		DYNAMO_INTERVAL: number;
 		EXCHANGE_INTERVAL: number;
 		EXCHANGE_TIMEOUT: number;
 		MAX_DATETIME_PROXIMITY: string;
-		BLOCKCYPHER_TOKEN: string;
 		ETHEREUM_HOST: string;
+		BLOCKCYPHER_TOKEN: string;
+		ETHERSCAN_TOKEN: string;
 	}
 
 	export type Option = {
@@ -96,8 +99,9 @@ declare module '*/interfaces' {
 	}
 
 	export interface Transaction {
-		id: string;
-		address: string;
+		uuid: string;
+		from: string;
+		to: string;
 		blockHeight: number;
 		datetime: string;
 		value: number;
@@ -117,10 +121,10 @@ declare module '*/interfaces' {
 
 	export interface TransactionOutput {
 		address: string;
-		receivedAmount?: number[];
-		receivedCount?: number[];
-		sentAmount?: number[];
-		sentCount?: number[];
+		receivedAmount?: any[];
+		receivedCount?: any[];
+		sentAmount?: any[];
+		sentCount?: any[];
 	}
 }
 

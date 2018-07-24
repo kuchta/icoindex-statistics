@@ -1,3 +1,4 @@
+import { v4 } from 'uuid';
 import { interval } from 'rxjs';
 import { map, flatMap, filter, takeWhile } from 'rxjs/operators';
 import { coinmarketcap } from 'ccxt';
@@ -12,7 +13,7 @@ export const options: Option[] = [
 	{ option: '-p, --print [pair]', description: 'Dont\'t save, just print' }
 ];
 
-export default function main(options: any) {
+export default function main(options: {[key: string]: string}) {
 	if (options.print) {
 		fetchService({ nextHandler: (ticker) => {
 			if (!(typeof options.print === 'string' && ticker.pair !== options.print)) {
@@ -42,9 +43,9 @@ export function fetchService({ exchange = new coinmarketcap({ timeout: config.EX
 		map((ticker) => ({ exchange: exchange.id, pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
 	);
 
-	return observable.subscribe(
+	observable.subscribe(
 		nextHandler ? (ticker) => nextHandler(ticker) : (ticker) => {
-			sendMessage({ exchange: ticker.exchange, pair: ticker.pair, datetime: ticker.datetime, rate: ticker.rate })
+			sendMessage({ uuid: v4(), exchange: ticker.exchange, pair: ticker.pair, datetime: ticker.datetime, rate: ticker.rate })
 			.then(() => nextThenHandler ? nextThenHandler(ticker) : logger.info1('Sucessfully sent to SNS', ticker))
 			.catch((error) => nextErrorHandler ? nextErrorHandler(error) : logger.error('Sending to SNS failed', error));
 		},

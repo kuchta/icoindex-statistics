@@ -1,4 +1,5 @@
 import { AddressInfo } from 'net';
+import { Server } from 'http';
 import express from 'express';
 import graphqlHTTP from 'express-graphql';
 import { buildSchema } from 'graphql';
@@ -6,7 +7,7 @@ import { buildSchema } from 'graphql';
 import logger from '../logger';
 import config from '../config';
 import { Option, TickerInputs, TickerOutput, AddressInputs, TransactionOutput } from '../interfaces';
-import { getTicker } from '../elastic';
+import { getTicker, getAddressAggregations } from '../elastic';
 import schema from '../../schema.gql';
 import { MyError } from '../errors';
 
@@ -16,8 +17,8 @@ export const options: Option[] = [
 	{ option: '-p, --port <port>', description: 'bind to this port' },
 ];
 
-export default function main(options: any) {
-	queryService(options.host || config.GRAPHQL_HOST, options.port || config.GRAPHQL_PORT, (address, port) => {
+export default function main(options: {[key: string]: string}) {
+	queryService(options.host || config.GRAPHQL_HOST, parseInt(options.port) || config.GRAPHQL_PORT, (address, port) => {
 		logger.info(`GraphQL server is listening on ${address}:${port}/graphql`);
 	});
 }
@@ -27,14 +28,17 @@ export function queryService(host: string, port: number, listening?: (address: s
 
 	app.use('/graphql', graphqlHTTP({
 		schema: buildSchema(schema),
-		rootValue: resolvers,
 		graphiql: true,
 		formatError: (error) => ({
 			message: error.message,
 			locations: error.locations,
 			stack: error.stack ? error.stack.split('\n') : [],
 			path: error.path
-		})
+		}),
+		rootValue: {
+			getTokenPairRate,
+			getAddressTransactions
+		}
 	}));
 
 	let server = app.listen(port, host, () => {
@@ -50,11 +54,6 @@ export function queryService(host: string, port: number, listening?: (address: s
 
 	return server;
 }
-
-const resolvers = {
-	getTokenPairRate,
-	getAddressTransactions
-};
 
 async function getTokenPairRate(input: TickerInputs) {
 	logger.info1('Request for getTokenPairRate', input);
@@ -94,14 +93,20 @@ async function getTokenPairRate(input: TickerInputs) {
 async function getAddressTransactions(input: AddressInputs) {
 	logger.info1('Request for getAddressTransactions', input);
 	return input.addresses.map(async ({ address, startDatetime, endDatetime, granularity }): Promise<TransactionOutput> => {
-		const output: TransactionOutput = {
-			address,
+		let output: TransactionOutput = {
+			address
 		};
 		try {
+			let inTxs = await getAddressAggregations(address, startDatetime, endDatetime, granularity, true);
+			output.receivedCount = inTxs.map((bucket) => bucket.bucket_stats.count);
+			output.receivedAmount = inTxs.map((bucket) => bucket.bucket_stats.sum || 0);
+
+			let outTxs = await getAddressAggregations(address, startDatetime, endDatetime, granularity, false);
+			output.sentCount = outTxs.map((bucket) => bucket.bucket_stats.count);
+			output.sentAmount = outTxs.map((bucket) => bucket.bucket_stats.sum || 0);
 		} catch (error) {
 			logger.error(`getAddressTransactions for address ${address} failed`, error);
 		} finally {
-			logger.info1('Response for getAddressTransactions', output);
 			return output;
 		}
 	});

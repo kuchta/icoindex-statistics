@@ -1,19 +1,23 @@
 import { interval } from 'rxjs';
 import { flatMap, filter, takeWhile } from 'rxjs/operators';
-import uuidv4 from 'uuid/v4';
 
 import logger from '../logger';
 import config from '../config';
 import { Option } from '../interfaces';
-import { Message, receiveMessage, deleteMessage } from '../sqs';
+import { Message, purgeQueue, receiveMessage, deleteMessage } from '../sqs';
 import { putItem } from '../dynamo';
 
 export const description = 'Push tickers to database';
 export const options: Option[] = [
-	{ option: '-p, --print', description: 'Dont\'t save, just print' }
+	{ option: '-p, --print', description: 'Dont\'t save, just print' },
+	{ option: '-P, --purge-queue', description: 'purge queue' },
 ];
 
-export default function main(options: any) {
+export default async function main(options: {[key: string]: string}) {
+	if (options.purgeQueue) {
+		await purgeQueue();
+		logger.info('queue purged');
+	}
 	if (options.print) {
 		storeService({ nextHandler: (message) => {
 			if (options.print) {
@@ -40,13 +44,12 @@ export function storeService({ fetch = receiveMessage, stopPredicate = () => fal
 		filter(Boolean)
 	);
 
-	return observable.subscribe(
+	observable.subscribe(
 		nextHandler ? (message) => nextHandler(message) : (message) => {
-			let item = { ...message.body, uuid: uuidv4() };
-			putItem(item)
+			putItem(message.body)
 			.then(() => {
 				deleteMessage(message.receiptHandle);
-				nextThenHandler ? nextThenHandler(message.body) : logger.info1('Succesfully sent to database', item);
+				nextThenHandler ? nextThenHandler(message.body) : logger.info1('Succesfully sent to database', message.body);
 			})
 			.catch((error) => nextErrorHandler ? nextErrorHandler(error) : logger.error('Sending to database failed', error));
 		},

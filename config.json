@@ -6,14 +6,17 @@
 	"AWS_SQS_QUEUE_URL": "",
 	"AWS_DYNAMO_TABLE": "",
 	"AWS_ELASTIC_HOST": "",
-	"AWS_ELASTIC_INDEX": "",
-	"AWS_ELASTIC_TYPE": "",
+	"AWS_ELASTIC_TICKER_INDEX": "icoindexstaging.cointradinghistory",
+	"AWS_ELASTIC_TICKER_TYPE": "icoindexstaging.cointradinghistory_type",
+	"AWS_ELASTIC_TRANSACTION_INDEX": "icoindexstaging.transactionhistory",
+	"AWS_ELASTIC_TRANSACTION_TYPE": "icoindexstaging.transactionhistory_type",
 	"GRAPHQL_HOST": "localhost",
 	"GRAPHQL_PORT": 8080,
 	"DYNAMO_INTERVAL": 100,
 	"EXCHANGE_INTERVAL": 300000,
 	"EXCHANGE_TIMEOUT": 60000,
 	"MAX_DATETIME_PROXIMITY": "24 hours",
+	"ETHEREUM_HOST": "",
 	"BLOCKCYPHER_TOKEN": "",
-	"ETHEREUM_HOST": ""
+	"ETHERSCAN_TOKEN": ""
 }

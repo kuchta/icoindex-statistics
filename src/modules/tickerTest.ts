@@ -17,10 +17,10 @@ export const options: Option[] = [
 	{ option: '-p, --port <port>', description: 'bind GraphQL service to this port' },
 ];
 
-export default function main(options: any) {
+export default function main(options: {[key: string]: string}) {
 	let host = options.host || 'localhost';
 	// let host = 'localhost';
-	let port = options.port || 12345;
+	let port = parseInt(options.port) || 12345;
 	// let port = 12345;
 
 	config.EXCHANGE_INTERVAL = 1000;
@@ -36,7 +36,7 @@ export default function main(options: any) {
 
 	test('fetchService', (test) => {
 		test.plan(fixtures.length);
-		let fsSubcription = fetchService({
+		fetchService({
 			exchange: createExchange(fixtures),
 			stopPredicate: () => allDataPassed(fixtures, 'sentToQueue'),
 			nextThenHandler: (ticker) => checkAndMarkData(test, fixtures, ticker, 'sentToQueue'),
@@ -48,7 +48,7 @@ export default function main(options: any) {
 
 	test('storeService', (test) => {
 		test.plan(fixtures.length);
-		let ssSubcription = storeService({
+		storeService({
 			stopPredicate: () => allDataPassed(fixtures, 'sentToDB'),
 			nextThenHandler: (ticker) => checkAndMarkData(test, fixtures, ticker, 'sentToDB'),
 			nextErrorHandler: (error) => test.fail(error),
