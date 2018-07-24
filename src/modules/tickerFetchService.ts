@@ -1,5 +1,5 @@
 import { v4 } from 'uuid';
-import { interval } from 'rxjs';
+import { timer } from 'rxjs';
 import { map, flatMap, filter, takeWhile } from 'rxjs/operators';
 import { coinmarketcap } from 'ccxt';
 
@@ -35,7 +35,7 @@ export function fetchService({ exchange = new coinmarketcap({ timeout: config.EX
 		errorHandler?: (error: any) => void,
 		completeHandler?: () => void } = {} ) {
 
-	let observable = interval(config.EXCHANGE_INTERVAL).pipe(
+	let observable = timer(0, config.EXCHANGE_INTERVAL).pipe(
 		takeWhile(() => !(stopPredicate() || process.exitCode !== undefined)),
 		flatMap(() => exchange.fetchTickers() as Promise<CCXTTickers>),
 		flatMap((data) => Object.values(data)),
