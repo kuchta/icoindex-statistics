@@ -1,7 +1,7 @@
 version: '3'  # version of compose format
 
 services:
-  fetch-service:
+  ticker-fetch-service:
     build: .
     command: node bin/index.js -v -d tickerFetchService
     environment:
@@ -9,12 +9,26 @@ services:
     - IS_AWS_REGION=${AWS_REGION}
     - IS_AWS_ACCESS_ID=${AWS_ACCESS_ID}
     - IS_AWS_SECRET_KEY=${AWS_SECRET_KEY}
-    - IS_AWS_SQS_QUEUE_URL=${AWS_SQS_QUEUE_URL}
-    - IS_AWS_SNS_TOPIC=${AWS_SNS_TOPIC}
-    - IS_EXCHANGE_INTERVAL=${EXCHANGE_INTERVAL}
+    - IS_AWS_SNS_TOPIC=${TICKER_FETCH_AWS_SNS_TOPIC}
+    - IS_EXCHANGE_INTERVAL=${TICKER_FETCH_EXCHANGE_INTERVAL}
     restart: always
 
-  store-service:
+  transaction-fetch-service:
+    build: .
+    command: node bin/index.js -v -d tickerFetchService
+    environment:
+    - NODE_ENV=${NODE_ENV}
+    - IS_AWS_REGION=${AWS_REGION}
+    - IS_AWS_ACCESS_ID=${AWS_ACCESS_ID}
+    - IS_AWS_SECRET_KEY=${AWS_SECRET_KEY}
+    - IS_AWS_SQS_QUEUE_URL=${TRANSACTION_FETCH_AWS_SQS_QUEUE_URL}
+    - IS_AWS_DYNAMO_TABLE=${TRANSACTION_FETCH_AWS_DYNAMO_TABLE}
+    - IS_ETHEREUM_HOST=${TRANSACTION_FETCH_ETHEREUM_HOST}
+    - IS_ETHERSCAN_TOKEN=${TRANSACTION_FETCH_ETHERSCAN_TOKEN}
+    - IS_AWS_SNS_TOPIC=${TRANSACTION_FETCH_AWS_SNS_TOPIC}
+    restart: always
+
+  ticker-store-service:
     build: .
     command: node bin/index.js -v -d storeService
     environment:
@@ -22,9 +36,22 @@ services:
     - IS_AWS_REGION=${AWS_REGION}
     - IS_AWS_ACCESS_ID=${AWS_ACCESS_ID}
     - IS_AWS_SECRET_KEY=${AWS_SECRET_KEY}
-    - IS_AWS_SQS_QUEUE_URL=${AWS_SQS_QUEUE_URL}
-    - IS_AWS_DYNAMO_TABLE=${AWS_DYNAMO_TABLE}
-    - IS_DYNAMO_INTERVAL=${DYNAMO_INTERVAL}
+    - IS_AWS_SQS_QUEUE_URL=${TICKER_STORE_AWS_SQS_QUEUE_URL}
+    - IS_AWS_DYNAMO_TABLE=${TICKER_STORE_AWS_DYNAMO_TABLEL}
+    - IS_DYNAMO_INTERVAL=${TICKER_STORE_DYNAMO_INTERVAL}
+    restart: always
+
+  transaction-store-service:
+    build: .
+    command: node bin/index.js -v -d storeService
+    environment:
+    - NODE_ENV=${NODE_ENV}
+    - IS_AWS_REGION=${AWS_REGION}
+    - IS_AWS_ACCESS_ID=${AWS_ACCESS_ID}
+    - IS_AWS_SECRET_KEY=${AWS_SECRET_KEY}
+    - IS_AWS_SQS_QUEUE_URL=${TRANSACTION_STORE_AWS_SQS_QUEUE_URL}
+    - IS_AWS_DYNAMO_TABLE=${TRANSACTION_STORE_AWS_DYNAMO_TABLEL}
+    - IS_DYNAMO_INTERVAL=${TRANSACTION_STORE_DYNAMO_INTERVAL}
     restart: always
 
   query-service:
