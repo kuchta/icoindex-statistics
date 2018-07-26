@@ -88,9 +88,9 @@ declare module '*/interfaces' {
 	export interface Address {
 		address: string;
 		enabled: boolean;
-		firstBlock: number;
-		lastBlock?: number; // Only used is address is disabled
-		complete: boolean; // All transactions loaded till the first transaction in the history (firstBlock)
+		enabledTime: string;
+		lastBlock?: number; // Only used is address history is still loading or if address is disabled
+		loadTime?: number;
 	}
 
 	export interface AddressMap {

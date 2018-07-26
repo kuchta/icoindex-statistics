@@ -45,6 +45,6 @@ export function isAddress(address: string) {
 	return getClient().utils.isAddress(address);
 }
 
-export function getAddressTransactions(address: string, before: number) {
-	return etherscan.getAddressTransactions(address, 0, before);
+export function getAddressTransactions(address: string, startBlock: number) {
+	return etherscan.getAddressTransactions(address, startBlock);
 }

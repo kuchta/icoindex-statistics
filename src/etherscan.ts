@@ -52,21 +52,19 @@ export default class Etherscan {
 		});
 	}
 
-	async getAddressTransactions(address: string, startBlock: number, endBlock: number, sort = 'desc') {
+	async getAddressTransactions(address: string, startBlock: number, sort = 'asc') {
 		let ret = await this._get<Response<ESTransaction>>({
 			module: 'account',
 			action: 'txlist',
 			address,
 			startblock: startBlock,
-			endblock: endBlock,
-			sort: sort
+			sort
 		});
 		if (ret.status === "0") {
 			return [];
 		} else if (ret.status !== "1") {
 			throw new MyError(`getAddressTransactions error: ${ret.message} (${ret.status})`);
 		} else {
-			logger.debug(`getAddressTransactions for address ${address} before block ${endBlock} returned ${ret.result.length} transaction`);
 			return ret.result.map(transaction => ({
 				uuid: transaction.hash,
 				from: transaction.from,

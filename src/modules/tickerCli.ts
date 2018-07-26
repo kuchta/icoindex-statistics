@@ -9,10 +9,10 @@ import { MyError } from '../errors';
 
 export const description = 'Ticker Management Utility';
 export const options: Option[] = [
-	{ option: '-I, --insert-ticker <pair datetime last>', description: 'send ticker through SNS' },
-	{ option: '-R, --remove-ticker <id>', description: 'remove ticker from dynamo' },
-	{ option: '-S, --search-tickers [pair datetime [exchange]]', description: 'search tickers in elastic' },
-	{ option: '-P, --purge-queue', description: 'purge SQS queue' },
+	{ option: '-I, --insert-ticker <pair datetime last>', description: 'send ticker to SNS' },
+	{ option: '-R, --remove-ticker <id>', description: 'remove ticker from Dynamo' },
+	{ option: '-S, --search-tickers [pair datetime [exchange]]', description: 'search tickers in Elastic' },
+	{ option: '-P, --purge-queue', description: 'purge queue' },
 	{ option: '-C, --create-index', description: 'create elastic index' },
 	{ option: '-D, --delete-index', description: 'delete elastic index' },
 ];

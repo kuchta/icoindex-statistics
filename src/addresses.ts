@@ -17,8 +17,7 @@ export class Addresses {
 		} else {
 			let lastBlock = await getLatestBlockNumber();
 			R.forEachObjIndexed<AddressMap>((address) => {
-				address.firstBlock = lastBlock;
-				address.complete = false;
+				address.lastBlock = 0;
 				putItem(address);
 			}, this.addresses);
 			this._lastBlock = lastBlock;
@@ -51,13 +50,14 @@ export class Addresses {
 				throw new MyError('Requested to enable address already enabled. Skipping...');
 			} else {
 				addressObj.enabled = true;
+				addressObj.enabledTime = new Date().toISOString();
 			}
 		} else {
 			addressObj = {
 				address,
 				enabled: true,
-				firstBlock: this._lastBlock,
-				complete: false
+				enabledTime: new Date().toISOString(),
+				lastBlock: -1
 			};
 			this.addresses[address] = addressObj;
 		}
@@ -88,7 +88,11 @@ export class Addresses {
 		return this.addresses;
 	}
 
-	getUncompleted() {
-		return Object.values(R.filter(address => !address.complete, this.addresses));
+	getCompletedEnabled() {
+		return R.filter(address => address.enabled && address.lastBlock === undefined, this.addresses);
+	}
+
+	getUncompletedEnabled() {
+		return R.filter(address => address.enabled && address.lastBlock !== undefined, this.addresses);
 	}
 }

@@ -11,15 +11,14 @@ import { getAddressTransactions } from '../ethereum';
 export const description = 'Ethereum Command Utility';
 export const options: Option[] = [
 	{ option: '--list-queue', description: 'list addresses in queue' },
-	{ option: '--list-db', description: 'list addresses in queue' },
-	{ option: '--add-address <address>', description: 'add address' },
-	{ option: '--remove-address <address>', description: 'remove address' },
-	{ option: '--delete-address <address>', description: 'delete address from DynamoDB' },
-	{ option: '-S, --search-transactions <address startDatetime endDatetime received|sent', description: 'search transactions in elastic' },
+	{ option: '--list-db', description: 'list addresses in Dynamo' },
+	{ option: '--enable-address <address>', description: 'enable address' },
+	{ option: '--disable-address <address>', description: 'disable address' },
+	{ option: '--delete-address <address>', description: 'delete address from Dynamo' },
+	{ option: '-S, --search-transactions <address startDatetime endDatetime received|sent', description: 'search transactions in Elastic' },
 	{ option: '-P, --purge-queue', description: 'purge queue' },
 	{ option: '-C, --create-index', description: 'create elastic index' },
 	{ option: '-D, --delete-index', description: 'delete elastic index' },
-	{ option: '-T, --test', description: 'test new code' }
 ];
 
 export default async function main(options: {[key: string]: string}) {
@@ -114,10 +113,6 @@ export default async function main(options: {[key: string]: string}) {
 		if (options.deleteIndex) {
 			await deleteIndex(config.AWS_ELASTIC_TRANSACTION_INDEX);
 			logger.info('index deleted');
-		}
-		if (options.test) {
-			let ret = await getAddressTransactions('0xddbd2b932c763ba5b1b7ae3b362eac3e8d40121a', 6000000);
-			logger.info('ret', ret);
 		}
 	} catch (error) {
 		logger.error('Command failed', error);

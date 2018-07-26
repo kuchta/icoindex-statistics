@@ -1,6 +1,7 @@
 import * as readline from 'readline';
 
 import R from 'ramda';
+import moment from 'moment';
 
 import logger from '../logger';
 import config from '../config';
@@ -39,15 +40,15 @@ export default async function main(/* options: any */) {
 				break;
 			}
 
-			/* Finish loading uncompleted addresses */
-			await loadUncompletedAddresses();
+			/* Check to see if there are new address in the queue and process it */
+			await checkAddressQueue();
 
 			if (process.exitCode !== undefined) {
 				break;
 			}
 
-			/* Check to see if there are new address in the queue and process it */
-			await checkAddressQueue();
+			/* Finish loading uncompleted addresses */
+			await loadUncompletedAddresses();
 
 			if (process.exitCode !== undefined) {
 				break;
@@ -85,7 +86,6 @@ async function checkAddressQueue() {
 			try {
 				if (message.body.enabled) {
 					addresses.enable(message.body.address);
-					await fetchAddressHistory(addresses.get(message.body.address));
 				} else {
 					addresses.disable(message.body.address);
 				}
@@ -98,7 +98,7 @@ async function checkAddressQueue() {
 }
 
 async function loadUncompletedAddresses() {
-	let uncompletedAddreses = addresses.getUncompleted();
+	let uncompletedAddreses = Object.values(addresses.getUncompletedEnabled());
 
 	if (uncompletedAddreses.length > 0) {
 		logger.info('completeAddresses: Loading uncompleted history for addresses', uncompletedAddreses);
@@ -111,31 +111,33 @@ async function loadUncompletedAddresses() {
 async function fetchAddressHistory(address: Address) {
 	logger.info(`Fetching history for address "${address.address}"`);
 
+	if (!address.enabled || address.lastBlock == null) {
+		return;
+	}
+
 	let transactions: Transaction[];
 
 	let i = 0;
 	try {
 		do {
-			transactions = await getAddressTransactions(address.address, address.firstBlock - 1);
+			transactions = await getAddressTransactions(address.address, address.lastBlock + 1);
 
-			logger.info(`Retrieved transactions history for address ${address.address} before block #${address.firstBlock} containing ${transactions.length} transactions`);
+			logger.info(`Retrieved transactions history for address ${address.address} after block #${address.lastBlock + 1} containing ${transactions.length} transactions`);
 
 			for (let transaction of transactions) {
-				try {
-					if (transaction.value > 0) {
-						await saveTransaction(transaction);
-						address.firstBlock = transaction.blockHeight;
-					}
-				} catch (error) {
-					logger.error('loadNewAddress: saving transaction failed:', error);
+				if (transaction.value > 0) {
+					await saveTransaction(transaction);
+					address.lastBlock = transaction.blockHeight;
 				}
 			}
 
-			if (transactions.length <= 0) {
-				address.complete = true;
+			if (transactions.length < 10000) {
+				delete address.lastBlock;
+				address.loadTime = Date.now() - new Date(address.enabledTime).valueOf();
+				logger.info(`History of address ${address.address} fetched in ${moment.duration(address.loadTime).humanize()}`);
 			}
 			putItem(address);
-		} while (transactions.length && process.exitCode === undefined);
+		} while (address.lastBlock !== undefined && process.exitCode === undefined);
 	} catch (error) {
 		logger.error('fetchAddressHistory error:', error);
 	}
@@ -148,20 +150,24 @@ async function syncAddresses() {
 		return;
 	}
 
+	let enabledAddresses = addresses.getCompletedEnabled();
+
+	if (R.isEmpty(enabledAddresses)) {
+		return;
+	}
+
 	logger.info(`Synchronizing addresses to latest block #${latestBlock} from block #${addresses.lastBlock}`);
 
 	let upToBlock = addresses.lastBlock + 10;
 
 	for (let blockNumber = addresses.lastBlock + 1; blockNumber <= upToBlock && blockNumber <= latestBlock && process.exitCode === undefined; blockNumber++) {
-		// logger.debug(`blockNumber: ${blockNumber}, lastBlock + 10: ${lastBlock + 10}`);
+		let block;
 		try {
-			// let block = await client.getBlock(blockNumber);
-			let block = await getBlock(blockNumber, true);
+			block = await getBlock(blockNumber, true);
 			logger.info(`Procesing block #${blockNumber} containing ${block.transactions.length} transactions`);
 			for (let transaction of block.transactions) {
 				// let transaction = await client.getTransaction(txid);
-				if ((transaction.from in addresses && addresses[transaction.from].enabled)
-						|| (transaction.to in addresses && addresses[transaction.to].enabled)) {
+				if ((transaction.from in enabledAddresses) || (transaction.to in enabledAddresses)) {
 					saveTransaction({
 						uuid: transaction.hash,
 						from: transaction.from,
@@ -175,13 +181,14 @@ async function syncAddresses() {
 			addresses.lastBlock = blockNumber;
 		} catch (error) {
 			logger.error('syncAddresses error:', error);
+			logger.debug('block', block);
 		}
 	}
 }
 
 function saveTransaction(transaction: Transaction) {
 	logger.info1(`saving transaction ${transaction.uuid} from block #${transaction.blockHeight}`);
-	sendMessage(transaction);
+	return sendMessage(transaction);
 }
 
 async function sleep(timeout: number) {
