@@ -4,6 +4,7 @@
 
 The main components are:
 1. [Ticker Fetch Service](#ticker-fetch-service)
+1. [Transaction Fetch Service](#transaction-fetch-service)
 2. [Store Service](#store-service)
 3. [Query Service](#query-service)
 
@@ -224,8 +225,10 @@ $ node bin/index.js queryService -h
    Time range in which the service are able to find matching tickers.
 
 1. AWS_ELASTIC_HOST
-1. AWS_ELASTIC_INDEX
-1. AWS_ELASTIC_TYPE
+1. AWS_ELASTIC_TICKER_INDEX
+1. AWS_ELASTIC_TICKER_TYPE
+1. AWS_ELASTIC_TRANSACTION_INDEX
+1. AWS_ELASTIC_TRANSACTION_TYPE
 1. GRAPHQL_HOST
 1. GRAPHQL_PORT
 
@@ -343,11 +346,13 @@ query MyQuery($addresses: [AddressInput]) {
       "address": "0xfeCe80448494eAe941ae32a816f9DE2b2989c934",
       "startDatetime": "2018-07-01",
       "endDatetime": "2018-08-01",
-      "granularity": "2.5h"
+      "granularity": "5d"
     }
   ]
 }
 ```
+For possible value for granularity key see: https://www.elastic.co/guide/en/elasticsearch/reference/2.3/search-aggregations-bucket-datehistogram-aggregation.html
+
 #### Result
 ```
 {
