@@ -127,8 +127,8 @@ async function fetchAddressHistory(address: Address) {
 			for (let transaction of transactions) {
 				if (transaction.value > 0) {
 					await saveTransaction(transaction);
-					address.lastBlock = transaction.blockHeight;
 				}
+				address.lastBlock = transaction.blockHeight;
 			}
 
 			if (transactions.length < 10000) {
@@ -165,9 +165,11 @@ async function syncAddresses() {
 		try {
 			block = await getBlock(blockNumber, true);
 			logger.info(`Procesing block #${blockNumber} containing ${block.transactions.length} transactions`);
+			let value;
 			for (let transaction of block.transactions) {
 				// let transaction = await client.getTransaction(txid);
-				if ((transaction.from in enabledAddresses) || (transaction.to in enabledAddresses)) {
+				value = parseFloat(transaction.value);
+				if (value > 0 && (transaction.from in enabledAddresses) || (transaction.to in enabledAddresses)) {
 					saveTransaction({
 						uuid: transaction.hash,
 						from: transaction.from,

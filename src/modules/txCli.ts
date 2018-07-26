@@ -35,17 +35,17 @@ export default async function main(options: {[key: string]: string}) {
 			let addresses = await scan('address') as AddressMap;
 			logger.info('addresses', addresses);
 		}
-		if (options.addAddress) {
-			if (typeof options.addAddress !== 'string') {
+		if (options.enableAddress) {
+			if (typeof options.enableAddress !== 'string') {
 				throw new MyError('address argument is required');
 			}
-			sendMessage({ address: options.addAddress, enabled: true });
+			sendMessage({ address: options.enableAddress, enabled: true });
 		}
-		if (options.removeAddress) {
-			if (typeof options.removeAddress !== 'string') {
+		if (options.disableAddress) {
+			if (typeof options.disableAddress !== 'string') {
 				throw new MyError('address argument is required');
 			}
-			sendMessage({ address: options.removeAddress, enabled: false });
+			sendMessage({ address: options.disableAddress, enabled: false });
 		}
 		if (options.deleteAddress) {
 			if (typeof options.deleteAddress !== 'string') {
