@@ -1,5 +1,6 @@
 import R from 'ramda';
 
+import logger from './logger';
 import { MyError } from './errors';
 import { Address, AddressMap } from '../interfaces';
 import { putItem, scan } from './dynamo';
@@ -30,14 +31,18 @@ export class Addresses {
 		}
 	}
 
+	// hasOwnProperty(key: string) {
+	// 	return this.addresses.hasOwnProperty(key);
+	// }
+
 	get(address: string) {
 		return this.addresses[address];
 	}
 
-	set(address: Address) {
-		this.addresses[address.address] = address;
-		putItem(address);
-	}
+	// set(address: Address) {
+	// 	this.addresses[address.address] = address;
+	// 	putItem(address);
+	// }
 
 	enable(address: string) {
 		if (!isAddress(address)) {

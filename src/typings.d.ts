@@ -9,17 +9,17 @@ declare module '*/interfaces' {
 		AWS_ELASTIC_HOST: string;
 		AWS_ELASTIC_TICKER_INDEX: string;
 		AWS_ELASTIC_TICKER_TYPE: string;
-		GRAPHQL_HOST: string;
 		AWS_ELASTIC_TRANSACTION_INDEX: string;
 		AWS_ELASTIC_TRANSACTION_TYPE: string;
+		GRAPHQL_HOST: string;
 		GRAPHQL_PORT: number;
 		DYNAMO_INTERVAL: number;
 		EXCHANGE_INTERVAL: number;
 		EXCHANGE_TIMEOUT: number;
 		MAX_DATETIME_PROXIMITY: string;
 		ETHEREUM_HOST: string;
-		BLOCKCYPHER_TOKEN: string;
 		ETHERSCAN_TOKEN: string;
+		ETHPLORER_TOKEN: string;
 	}
 
 	export type Option = {
@@ -89,7 +89,7 @@ declare module '*/interfaces' {
 		address: string;
 		enabled: boolean;
 		enabledTime: string;
-		lastBlock?: number; // Only used is address history is still loading or if address is disabled
+		lastBlock?: number; // Only used if address is disabled of address history is still loading
 		loadTime?: number;
 	}
 
@@ -100,11 +100,11 @@ declare module '*/interfaces' {
 
 	export interface Transaction {
 		uuid: string;
-		from: string;
-		to: string;
 		blockHeight: number;
 		datetime: string;
 		value: number;
+		from: string;
+		to: string;
 	}
 
 	/* GraphQL getAddressTransactions input */

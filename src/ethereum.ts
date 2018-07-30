@@ -6,16 +6,15 @@ import logger from './logger';
 
 import { Option, Address, AddressMessage, Transaction } from './interfaces';
 
-import BlockCypher, { AddressOptions, Address as BcAddress } from './blockcypher';
+// import BlockCypher, { AddressOptions, Address as BcAddress } from './blockcypher';
 import Etherscan from './etherscan';
+// import Ethplorer from './ethplorer';
 
-// type Filter = { address: string; fromBlock?: number, topics?: string[] };
+// const historyApi = new BlockCypher('eth', 'main');
+const historyApi = new Etherscan();
+// const historyApi = new Ethplorer();
 
 let client: any = null;
-
-const blockCypher = new BlockCypher('eth', 'main');
-const etherscan = new Etherscan();
-const RECORDS_PER_PAGE = 2000;
 
 function getClient(): Web3 {
 	if (client) {
@@ -46,5 +45,5 @@ export function isAddress(address: string) {
 }
 
 export function getAddressTransactions(address: string, startBlock: number) {
-	return etherscan.getAddressTransactions(address, startBlock);
+	return historyApi.getAddressTransactions(address, startBlock);
 }

@@ -12,6 +12,7 @@ import { receiveMessage, deleteMessage } from '../sqs';
 import { sendMessage } from '../sns';
 import { Addresses } from '../addresses';
 import { getLatestBlockNumber, getBlock, getTransaction, getAddressTransactions, isAddress, } from '../ethereum';
+import { ESTransaction } from '../etherscan';
 
 export const description = 'Fetch address transactions';
 export const options: Option[] = [
@@ -71,18 +72,17 @@ export default async function main(/* options: any */) {
 }
 
 async function checkAddressQueue() {
-	logger.info('Checking queue for new addresses');
+	logger.info1('Checking queue for new addresses');
 
 	let message = await receiveMessage<AddressMessage>();
 
 	if (message && message.body) {
-		logger.info(`Request for ${message.body.enabled ? 'enabling' : 'disabling'} address "${message.body.address}"`);
-
 		if (!message.body.hasOwnProperty('address')) {
 			logger.warning(`Message doesn't contain required attribute "address"`, message.body);
 		} else if (!message.body.hasOwnProperty('enabled')) {
 			logger.warning(`Message doesn't contain required attribute "enabled"`, message.body);
 		} else {
+			logger.info(`Request for ${message.body.enabled ? 'enabling' : 'disabling'} address "${message.body.address}"`);
 			try {
 				if (message.body.enabled) {
 					addresses.enable(message.body.address);
@@ -115,7 +115,7 @@ async function fetchAddressHistory(address: Address) {
 		return;
 	}
 
-	let transactions: Transaction[];
+	let transactions: ESTransaction[];
 
 	let i = 0;
 	try {
@@ -125,10 +125,19 @@ async function fetchAddressHistory(address: Address) {
 			logger.info(`Retrieved transactions history for address ${address.address} after block #${address.lastBlock + 1} containing ${transactions.length} transactions`);
 
 			for (let transaction of transactions) {
-				if (transaction.value > 0) {
-					await saveTransaction(transaction);
+				let value = parseInt(transaction.value);
+				let blockHeight = parseInt(transaction.blockNumber);
+				if (value > 0) {
+					saveTransaction({
+						uuid: transaction.hash,
+						datetime: new Date(parseInt(transaction.timeStamp) * 1000).toISOString(),
+						blockHeight,
+						value,
+						from: transaction.from,
+						to: transaction.to
+					});
 				}
-				address.lastBlock = transaction.blockHeight;
+				address.lastBlock = blockHeight;
 			}
 
 			if (transactions.length < 10000) {
@@ -164,20 +173,20 @@ async function syncAddresses() {
 		let block;
 		try {
 			block = await getBlock(blockNumber, true);
-			logger.info(`Procesing block #${blockNumber} containing ${block.transactions.length} transactions`);
+			logger.info1(`Procesing block #${blockNumber} containing ${block.transactions.length} transactions`);
 			let value;
 			for (let transaction of block.transactions) {
 				// let transaction = await client.getTransaction(txid);
 				value = parseFloat(transaction.value);
-				if (value > 0 && (transaction.from in enabledAddresses) || (transaction.to in enabledAddresses)) {
+				if (value > 0 && (enabledAddresses.hasOwnProperty(transaction.from) || enabledAddresses.hasOwnProperty(transaction.to))) {
 					saveTransaction({
 						uuid: transaction.hash,
-						from: transaction.from,
-						to: transaction.to,
 						blockHeight: blockNumber,
 						datetime: (new Date(block.timestamp * 1000)).toISOString(),
-						value: parseFloat(transaction.value)
-					} as Transaction);
+						value: value,
+						from: transaction.from,
+						to: transaction.to
+					});
 				}
 			}
 			addresses.lastBlock = blockNumber;
@@ -190,6 +199,7 @@ async function syncAddresses() {
 
 function saveTransaction(transaction: Transaction) {
 	logger.info1(`saving transaction ${transaction.uuid} from block #${transaction.blockHeight}`);
+
 	return sendMessage(transaction);
 }
 

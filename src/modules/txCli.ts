@@ -6,7 +6,6 @@ import { sendMessage } from '../sns';
 import { scan, deleteItem } from '../dynamo';
 import { MyError } from '../errors';
 import { createIndex, deleteIndex, searchTransactions } from '../elastic';
-import { getAddressTransactions } from '../ethereum';
 
 export const description = 'Ethereum Command Utility';
 export const options: Option[] = [

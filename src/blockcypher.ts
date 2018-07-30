@@ -2,12 +2,9 @@ import request from 'request-promise-native';
 import TokenBucket from 'tokenbucket';
 
 import logger from './logger';
-import config from './config';
 import { MyError } from './errors';
 
 const BASE_URL = 'https://api.blockcypher.com/v1';
-let token: string;
-let tokenBucket: any;
 
 export interface Address {
 	address: string;
@@ -45,54 +42,53 @@ export interface AddressOptions {
 	confirmations?: number;
 }
 
-async function init() {
-	token = config.BLOCKCYPHER_TOKEN;
-
-	const tokenInfo = await request.get(`${BASE_URL}/tokens/${token}`, { strictSSL: true, json: true });
-
-	const dayTokenBucket = new TokenBucket({
-		size: tokenInfo['limits']['api/day'],
-		tokensToAddPerInterval: tokenInfo['limits']['api/day'],
-		interval: 'day'
-	});
-
-	const hourTokenBucket = new TokenBucket({
-		size: tokenInfo['limits']['api/hour'],
-		tokensToAddPerInterval: tokenInfo['limits']['api/hour'],
-		interval: 'hour',
-		parentBucket: dayTokenBucket
-	});
-
-	tokenBucket = new TokenBucket({
-		size: tokenInfo['limits']['api/hour'],
-		tokensToAddPerInterval: tokenInfo['limits']['api/hour'],
-		interval: 'second',
-		parentBucket: hourTokenBucket
-	});
-}
-
 export default class BlockCypher {
-	url: string;
+	private url: string;
+	private tokenBucket: any;
 
 	/**
 	 * <b>BlockCypher API Client</b>.
 	 * @constructor
-	 * @param {string}	coin	The coin for which you're using the BlockCypher API. Can be 'btc', 'ltc', 'doge', or 'bcy'.
+	 * @param {string}	coin	The coin for which you're using the BlockCypher API. Can be 'btc', 'ltc', 'eth', 'doge', or 'bcy'.
 	 * @param {string}	chain	The chain for which you're using the BlockCypher API. Can be 'main', 'test', or 'test3'.
 	 */
-	constructor(private coin: string, private chain: string) {
-		this.url = `${BASE_URL}/${coin}/${chain}`;
+	constructor(private coin: string, private chain: string, private token: string, baseUrl = BASE_URL) {
+		this.url = `${baseUrl}/${coin}/${chain}`;
+	}
+
+	async init() {
+		const tokenInfo = await request.get(`${BASE_URL}/tokens/${this.token}`, { strictSSL: true, json: true });
+
+		const dayTokenBucket = new TokenBucket({
+			size: tokenInfo['limits']['api/day'],
+			tokensToAddPerInterval: tokenInfo['limits']['api/day'],
+			interval: 'day'
+		});
+
+		const hourTokenBucket = new TokenBucket({
+			size: tokenInfo['limits']['api/hour'],
+			tokensToAddPerInterval: tokenInfo['limits']['api/hour'],
+			interval: 'hour',
+			parentBucket: dayTokenBucket
+		});
+
+		this.tokenBucket = new TokenBucket({
+			size: tokenInfo['limits']['api/hour'],
+			tokensToAddPerInterval: tokenInfo['limits']['api/hour'],
+			interval: 'second',
+			parentBucket: hourTokenBucket
+		});
 	}
 
 	async _request<T>(method: string, path: string, params: object) {
 		try {
-			if (!tokenBucket) {
-				await init();
+			if (!this.tokenBucket) {
+				await this.init();
 			}
-			await tokenBucket.removeTokens(1);
+			await this.tokenBucket.removeTokens(1);
 			const url = `${this.url}${path}`;
 			logger.debug(`Calling BlockCypher API: ${method.toUpperCase()} ${url} with params:`, params);
-			return request[method]({ ...params, strictSSL: true, json: true, token, url }) as T;
+			return request[method]({ ...params, url, strictSSL: true, json: true, token: this.token }) as T;
 		} catch (error) {
 			throw new MyError('BlockCypher request failed', { error });
 		}
