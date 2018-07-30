@@ -7,7 +7,7 @@ import logger from './logger';
 import { Option, Address, AddressMessage, Transaction } from './interfaces';
 
 // import BlockCypher, { AddressOptions, Address as BcAddress } from './blockcypher';
-import Etherscan from './etherscan';
+import Etherscan, { ESTransaction } from './etherscan';
 // import Ethplorer from './ethplorer';
 
 // const historyApi = new BlockCypher('eth', 'main');

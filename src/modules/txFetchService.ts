@@ -135,7 +135,7 @@ async function fetchAddressHistory(address: Address) {
 						value,
 						from: transaction.from,
 						to: transaction.to
-					});
+					}, true);
 				}
 				address.lastBlock = blockHeight;
 			}
@@ -197,10 +197,10 @@ async function syncAddresses() {
 	}
 }
 
-function saveTransaction(transaction: Transaction) {
-	logger.info1(`saving transaction ${transaction.uuid} from block #${transaction.blockHeight}`);
+function saveTransaction(transaction: Transaction, historical = false) {
+	logger.info1(`saving ${historical ? 'historical' : 'current' } transaction ${transaction.uuid} from block #${transaction.blockHeight}`);
 
-	return sendMessage(transaction);
+	return sendMessage(transaction, { historical });
 }
 
 async function sleep(timeout: number) {

@@ -1,5 +1,5 @@
 import moment from 'moment';
-import { Client } from 'elasticsearch';
+import { Client, Explanation, SearchResponse } from 'elasticsearch';
 import AWS from 'aws-sdk';
 import { integer } from 'aws-sdk/clients/cloudfront';
 import httpAWSES from 'http-aws-es';

@@ -1,3 +1,4 @@
+import R from 'ramda';
 import { SNS } from 'aws-sdk';
 
 import logger from './logger';
@@ -22,13 +23,40 @@ function getClient(): SNS {
 	}
 }
 
-export async function sendMessage<T>(message: T) {
+export async function sendMessage<T>(message: T, attributes?: {[key: string]: boolean | number | string }) {
 	try {
-		await getClient().publish({
+		let msg: SNS.Types.PublishInput = {
 			TopicArn: config.AWS_SNS_TOPIC,
 			Message: JSON.stringify(message)
-		}).promise();
+		};
+
+		if (attributes) {
+			msg.MessageAttributes = R.mapObjIndexed(value => getMessageAttributeValue(value), attributes);
+		}
+
+		await getClient().publish(msg).promise();
 	} catch (error) {
 		throw new MyError('SNS publish failed', { error });
+	}
+}
+
+function getMessageAttributeValue(value: boolean | number | string) {
+	if (typeof value === 'boolean') {
+		return {
+			DataType: 'String',
+			StringValue: String(value)
+		};
+	} else if (typeof value === 'number') {
+		return {
+			DataType: 'Number',
+			StringValue: String(value)
+		};
+	} else if (typeof value === 'string') {
+		return {
+			DataType: 'String',
+			StringValue: value
+		};
+	} else {
+		throw new MyError(`getMessageAttributeDataType error: Invalid type of value: ${value} (${typeof value})`);
 	}
 }
