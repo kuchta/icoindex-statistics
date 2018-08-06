@@ -1,14 +1,18 @@
+import R from 'ramda';
 import { SQS } from 'aws-sdk';
+import { MessageAttributeValue } from 'aws-sdk/clients/sqs';
 
 import logger from './logger';
 import config from './config';
 import { MyError } from './errors';
+import { MessageAttributes } from '*/interfaces';
 
 let client: SQS | null = null;
 
 export interface Message<T> {
-	body: T;
 	receiptHandle: string;
+	body: T;
+	attributes?: MessageAttributes;
 }
 
 function getClient(): SQS {
@@ -29,7 +33,7 @@ function getClient(): SQS {
 
 export async function receiveMessage<T>(visibilityTimeout?: number) {
 	try {
-		let params = { QueueUrl: config.AWS_SQS_QUEUE_URL, WaitTimeSeconds: 0 };
+		let params = { QueueUrl: config.AWS_SQS_QUEUE_URL, MaxNumberOfMessages: 1, WaitTimeSeconds: 0 };
 		if (visibilityTimeout != null) {
 			params['VisibilityTimeout'] = visibilityTimeout;
 		}
@@ -39,11 +43,18 @@ export async function receiveMessage<T>(visibilityTimeout?: number) {
 			/* loop is used to satisfy TypeScript checker */
 			for (let message of data.Messages) {
 				if (message.ReceiptHandle && message.Body) {
-					// if (body && body.TopicArn === config.AWS_SNS_TOPIC) {
-					return {
+					let ret: Message<T> = {
 						body: JSON.parse(JSON.parse(message.Body).Message) as T,
 						receiptHandle: message.ReceiptHandle
-					} as Message<T>;
+					};
+
+					if (message.MessageAttributes) {
+						ret.attributes = R.mapObjIndexed(value => messageAttributeToValue(value), message.MessageAttributes);
+					}
+
+					return ret;
+				} else {
+					throw new MyError("SQS receiveMessage: Message doesn't contain Body or ReceiptHandle", { object: message });
 				}
 			}
 		}
@@ -51,6 +62,33 @@ export async function receiveMessage<T>(visibilityTimeout?: number) {
 		return null;
 	} catch (error) {
 		throw new MyError('SQS receiveMessage failed', { error });
+	}
+}
+
+const valueRegExp = /(.*)\((.*)\)/;
+
+function messageAttributeToValue(attribute: MessageAttributeValue) {
+	if (attribute.DataType === 'Number') {
+		return Number(attribute.StringValue);
+	} else if (attribute.DataType === 'String') {
+		if (attribute.StringValue) {
+			let ret = valueRegExp.exec(attribute.StringValue);
+			if (ret && ret[1] && ret[2]) {
+				if (ret[1] === 'boolean') {
+					return Boolean(ret[2]);
+				} else if (ret[1] === 'object') {
+					return JSON.parse(ret[2]);
+				} else {
+					throw new MyError(`messageAttributeToValue error: Invalid embedded type "${ret[1]}" of value "${ret[2]}"`);
+				}
+			} else {
+				return attribute.StringValue;
+			}
+		} else {
+			throw new MyError('messageAttributeToValue error: Value of type string is empty');
+		}
+	} else {
+		throw new MyError(`messageAttributeToValue error: Invalid type "${attribute.DataType}" of value "${attribute.StringValue}"`);
 	}
 }
 

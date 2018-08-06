@@ -19,9 +19,7 @@ export const options: Option[] = [
 
 export default function main(options: {[key: string]: string}) {
 	let host = options.host || 'localhost';
-	// let host = 'localhost';
 	let port = parseInt(options.port) || 12345;
-	// let port = 12345;
 
 	config.EXCHANGE_INTERVAL = 1000;
 	config.DYNAMO_INTERVAL = 1000;
@@ -72,11 +70,7 @@ export default function main(options: {[key: string]: string}) {
 			.then((data) => {
 				server.close();
 				let ticker = data.getTokenPairRate;
-				// let expectedResult = R.map(R.prop('result'), queries);
 				queries.forEach((query, i) => test.same(ticker[i], query.result, `ticker pair=${ticker[i].pair}, datetime=${ticker[i].datetime}, rate=${ticker[i].rate}`));
-				// for (let i = 0; i < queries.length; i++) {
-				// 	test.same(ticker[i], expectedResult[i], `ticker pair=${ticker[i].pair}, datetime=${ticker[i].datetime}, rate=${ticker[i].rate}`);
-				// }
 				test.end();
 			}).catch((error) => {
 				server.close();

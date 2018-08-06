@@ -6,12 +6,12 @@ import moment from 'moment';
 import logger from '../logger';
 import config from '../config';
 import { MyError } from '../errors';
-import { Option, Address, AddressMessage, Transaction } from '../interfaces';
+import { Option, Address, AddressMessage, MessageAttributes, Transaction } from '../interfaces';
 import { putItem } from '../dynamo';
 import { receiveMessage, deleteMessage } from '../sqs';
 import { sendMessage } from '../sns';
 import { Addresses } from '../addresses';
-import { getLatestBlockNumber, getBlock, getTransaction, getAddressTransactions, isAddress, } from '../ethereum';
+import { getLatestBlockNumber, getBlock, getAddressTransactions } from '../ethereum';
 import { ESTransaction } from '../etherscan';
 
 export const description = 'Fetch address transactions';
@@ -31,10 +31,13 @@ export default async function main(/* options: any */) {
 	await addresses.init();
 
 	logger.info(`lastBlock: ${addresses.lastBlock}`);
-	logger.info('addresses', addresses.getAll());
+	logger.info1('addresses', addresses.getAll());
+
+	let startTime;
+	let time;
 
 	while (true) {
-		let startTime = Date.now();
+		startTime = Date.now();
 
 		try {
 			if (process.exitCode !== undefined) {
@@ -61,7 +64,7 @@ export default async function main(/* options: any */) {
 			logger.error('Error', error);
 		}
 
-		let time = 10000 - (Date.now() - startTime);
+		time = 10000 - (Date.now() - startTime);
 
 		if (time > 0 && process.exitCode === undefined) {
 			// process.on('beforeExit', () => return);
@@ -74,7 +77,7 @@ export default async function main(/* options: any */) {
 async function checkAddressQueue() {
 	logger.info1('Checking queue for new addresses');
 
-	let message = await receiveMessage<AddressMessage>();
+	const message = await receiveMessage<AddressMessage>();
 
 	if (message && message.body) {
 		if (!message.body.hasOwnProperty('address')) {
@@ -98,11 +101,11 @@ async function checkAddressQueue() {
 }
 
 async function loadUncompletedAddresses() {
-	let uncompletedAddreses = Object.values(addresses.getUncompletedEnabled());
+	const uncompletedAddreses = Object.values(addresses.getUncompletedEnabled());
 
 	if (uncompletedAddreses.length > 0) {
 		logger.info('completeAddresses: Loading uncompleted history for addresses', uncompletedAddreses);
-		for (let address of uncompletedAddreses) {
+		for (const address of uncompletedAddreses) {
 			await fetchAddressHistory(address);
 		}
 	}
@@ -115,35 +118,35 @@ async function fetchAddressHistory(address: Address) {
 		return;
 	}
 
-	let transactions: ESTransaction[];
+	let value;
+	let blockHeight;
+	let transaction;
 
-	let i = 0;
 	try {
 		do {
-			transactions = await getAddressTransactions(address.address, address.lastBlock + 1);
+			const response = await getAddressTransactions(address.address, address.lastBlock + 1);
 
-			logger.info(`Retrieved transactions history for address ${address.address} after block #${address.lastBlock + 1} containing ${transactions.length} transactions`);
+			logger.info(`Retrieved transaction history for address ${address.address} after block #${address.lastBlock + 1} containing ${response.transactions.length} transactions`);
 
-			for (let transaction of transactions) {
-				let value = parseInt(transaction.value);
-				let blockHeight = parseInt(transaction.blockNumber);
-				if (value > 0) {
-					saveTransaction({
-						uuid: transaction.hash,
-						datetime: new Date(parseInt(transaction.timeStamp) * 1000).toISOString(),
-						blockHeight,
-						value,
-						from: transaction.from,
-						to: transaction.to
-					}, true);
-				}
+			for (transaction of response.transactions) {
+				value = parseInt(transaction.value);
+				blockHeight = parseInt(transaction.blockNumber);
+				saveTransaction({
+					uuid: transaction.hash,
+					datetime: new Date(parseInt(transaction.timeStamp) * 1000).toISOString(),
+					blockHeight,
+					value,
+					from: transaction.from,
+					to: transaction.to
+				}, true);
 				address.lastBlock = blockHeight;
 			}
 
-			if (transactions.length < 10000) {
+			if (response.last) {
 				delete address.lastBlock;
 				address.loadTime = Date.now() - new Date(address.enabledTime).valueOf();
 				logger.info(`History of address ${address.address} fetched in ${moment.duration(address.loadTime).humanize()}`);
+				generateAddressTransactionHistoryStoredEvent(address.address);
 			}
 			putItem(address);
 		} while (address.lastBlock !== undefined && process.exitCode === undefined);
@@ -153,30 +156,29 @@ async function fetchAddressHistory(address: Address) {
 }
 
 async function syncAddresses() {
-	let latestBlock = await getLatestBlockNumber();
+	const latestBlock = await getLatestBlockNumber();
 
 	if (latestBlock <= addresses.lastBlock) {
 		return;
 	}
 
-	let enabledAddresses = addresses.getCompletedEnabled();
+	const enabledAddresses = addresses.getCompletedEnabled();
 
 	if (R.isEmpty(enabledAddresses)) {
 		return;
 	}
 
-	logger.info(`Synchronizing addresses to latest block #${latestBlock} from block #${addresses.lastBlock}`);
+	logger.info(`Synchronizing addresses to latest block #${latestBlock} from block #${addresses.lastBlock} (${latestBlock - addresses.lastBlock} blocks remaining)`);
 
-	let upToBlock = addresses.lastBlock + 10;
+	const upToBlock = addresses.lastBlock + 10;
 
+	let block;
+	let value;
 	for (let blockNumber = addresses.lastBlock + 1; blockNumber <= upToBlock && blockNumber <= latestBlock && process.exitCode === undefined; blockNumber++) {
-		let block;
 		try {
 			block = await getBlock(blockNumber, true);
 			logger.info1(`Procesing block #${blockNumber} containing ${block.transactions.length} transactions`);
-			let value;
-			for (let transaction of block.transactions) {
-				// let transaction = await client.getTransaction(txid);
+			for (const transaction of block.transactions) {
 				value = parseFloat(transaction.value);
 				if (value > 0 && (enabledAddresses.hasOwnProperty(transaction.from) || enabledAddresses.hasOwnProperty(transaction.to))) {
 					saveTransaction({
@@ -197,10 +199,24 @@ async function syncAddresses() {
 	}
 }
 
-function saveTransaction(transaction: Transaction, historical = false) {
-	logger.info1(`saving ${historical ? 'historical' : 'current' } transaction ${transaction.uuid} from block #${transaction.blockHeight}`);
+async function saveTransaction(transaction: Transaction, historical = false, lastHistoricalTransactionOfAddress?: string) {
+	logger.info1(`Saving ${historical ? 'historical' : 'current' } transaction ${transaction.uuid} from block #${transaction.blockHeight}`);
 
-	return sendMessage(transaction, { historical });
+	try {
+		await sendMessage(transaction, { historical });
+	} catch (error) {
+		logger.error(`${historical ? 'fetchAddressHistory' : 'syncAddresses'} saveTransaction error`, error);
+	}
+}
+
+async function generateAddressTransactionHistoryStoredEvent(address: string) {
+	logger.info1(`Generating address transaction history stored event for address: "${address}"`);
+
+	try {
+		await sendMessage({}, { storeEvent: { addressTransactionHistoryStored: address } });
+	} catch (error) {
+		logger.error('generateAddressHistoryStoredEvent error', error);
+	}
 }
 
 async function sleep(timeout: number) {

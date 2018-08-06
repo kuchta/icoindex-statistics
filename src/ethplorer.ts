@@ -1,6 +1,4 @@
-import logger from './logger';
 import config from './config';
-import { MyError } from './errors';
 import { Transaction } from './interfaces';
 import Remoting from './remoting';
 

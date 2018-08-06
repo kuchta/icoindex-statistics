@@ -4,6 +4,7 @@ import { SNS } from 'aws-sdk';
 import logger from './logger';
 import config from './config';
 import { MyError } from './errors';
+import { MessageAttributes } from '*/interfaces';
 
 let client: SNS | null = null;
 
@@ -23,7 +24,7 @@ function getClient(): SNS {
 	}
 }
 
-export async function sendMessage<T>(message: T, attributes?: {[key: string]: boolean | number | string }) {
+export async function sendMessage(message: object, attributes?: MessageAttributes) {
 	try {
 		let msg: SNS.Types.PublishInput = {
 			TopicArn: config.AWS_SNS_TOPIC,
@@ -31,7 +32,7 @@ export async function sendMessage<T>(message: T, attributes?: {[key: string]: bo
 		};
 
 		if (attributes) {
-			msg.MessageAttributes = R.mapObjIndexed(value => getMessageAttributeValue(value), attributes);
+			msg.MessageAttributes = R.mapObjIndexed(value => valueToMessageAttribute(value), attributes);
 		}
 
 		await getClient().publish(msg).promise();
@@ -40,11 +41,11 @@ export async function sendMessage<T>(message: T, attributes?: {[key: string]: bo
 	}
 }
 
-function getMessageAttributeValue(value: boolean | number | string) {
+function valueToMessageAttribute(value: boolean | number | string | object) {
 	if (typeof value === 'boolean') {
 		return {
 			DataType: 'String',
-			StringValue: String(value)
+			StringValue: `boolean(${value})`
 		};
 	} else if (typeof value === 'number') {
 		return {
@@ -56,7 +57,12 @@ function getMessageAttributeValue(value: boolean | number | string) {
 			DataType: 'String',
 			StringValue: value
 		};
+	} else if (typeof value === 'object') {
+		return {
+			DataType: 'String',
+			StringValue: `object(${JSON.stringify(value)})`
+		};
 	} else {
-		throw new MyError(`getMessageAttributeDataType error: Invalid type of value: ${value} (${typeof value})`);
+		throw new MyError(`valueToMessageAttribute error: Invalid type of value: ${value} (${typeof value})`);
 	}
 }

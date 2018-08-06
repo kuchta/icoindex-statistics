@@ -107,6 +107,11 @@ declare module '*/interfaces' {
 		to: string;
 	}
 
+	export interface MessageAttributes {
+		historical?: boolean;
+		storeEvent?: object;
+	};
+
 	/* GraphQL getAddressTransactions input */
 	export interface AddressInputs {
 		addresses: AddressInput[];

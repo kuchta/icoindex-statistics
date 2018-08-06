@@ -1,7 +1,5 @@
-import logger from './logger';
 import config from './config';
 import { MyError } from './errors';
-import { Transaction } from './interfaces';
 import Remoting from './remoting';
 
 const BASE_URL = 'http://api.etherscan.io/api';
@@ -38,20 +36,30 @@ export default class Etherscan extends Remoting {
 		super(apiKey, url);
 	}
 
-	async getAddressTransactions(address: string, startBlock: number, sort = 'asc') {
-		let ret = await this._get<Response<ESTransaction>>({
-			module: 'account',
-			action: 'txlist',
-			address,
-			startblock: startBlock,
-			sort
-		});
-		if (ret.status === "0") {
-			return [];
-		} else if (ret.status !== "1") {
-			throw new MyError(`getAddressTransactions error: ${ret.message} (${ret.status})`);
-		} else {
-			return ret.result;
+	async getAddressTransactions(address: string, startBlock: number) {
+		try {
+			let ret = await this._get<Response<ESTransaction>>({
+				module: 'account',
+				action: 'txlist',
+				address,
+				startblock: startBlock,
+				sort: 'asc'
+			});
+			if (ret.status === "0") {
+				return {
+					last: true,
+					transactions: []
+				};
+			} else if (ret.status !== "1") {
+				throw new MyError(`getAddressTransactions error: ${ret.message} (${ret.status})`);
+			} else {
+				return {
+					last: ret.result.length < 10000,
+					transactions: ret.result.filter((transaction) => transaction.value !== "0")
+				};
+			}
+		} catch (error) {
+			throw new MyError('getAddressTransactions error', error);
 		}
 	}
 }
