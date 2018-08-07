@@ -195,8 +195,6 @@ export async function searchTransactions(query: object) {
 			// timeout: '1m'
 		});
 
-		// logger.debug('response', response);
-
 		return response;
 	} catch (error) {
 		throw new MyError('ES search failed', { error });

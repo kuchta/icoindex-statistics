@@ -18,7 +18,7 @@ export const options: Option[] = [
 export default async function main(options: {[key: string]: string}) {
 	if (options.purgeQueue) {
 		await purgeQueue();
-		logger.info('queue purged');
+		logger.info('Queue purged');
 	}
 	if (options.print) {
 		storeService({ nextHandler: (message) => {

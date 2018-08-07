@@ -30,9 +30,6 @@ export default async function main(/* options: any */) {
 
 	await addresses.init();
 
-	logger.info(`lastBlock: ${addresses.lastBlock}`);
-	logger.info1('addresses', addresses.getAll());
-
 	let startTime;
 	let time;
 
@@ -93,7 +90,7 @@ async function checkAddressQueue() {
 					addresses.disable(message.body.address);
 				}
 			} catch (error) {
-				logger.error('checkAddressQueue failed', error);
+				logger.error(`checkAddressQueue failed: ${error}`);
 			}
 			deleteMessage(message.receiptHandle);
 		}
@@ -124,25 +121,27 @@ async function fetchAddressHistory(address: Address) {
 
 	try {
 		do {
-			const response = await getAddressTransactions(address.address, address.lastBlock + 1);
+			const transactions = await getAddressTransactions(address.address, address.lastBlock + 1, addresses.lastBlock);
 
-			logger.info(`Retrieved transaction history for address ${address.address} after block #${address.lastBlock + 1} containing ${response.transactions.length} transactions`);
+			logger.info(`Retrieved transaction history for address ${address.address} after block #${address.lastBlock + 1} containing ${transactions.length} transactions`);
 
-			for (transaction of response.transactions) {
+			for (transaction of transactions) {
 				value = parseInt(transaction.value);
 				blockHeight = parseInt(transaction.blockNumber);
-				saveTransaction({
-					uuid: transaction.hash,
-					datetime: new Date(parseInt(transaction.timeStamp) * 1000).toISOString(),
-					blockHeight,
-					value,
-					from: transaction.from,
-					to: transaction.to
-				}, true);
+				if (value !== 0) {
+					saveTransaction({
+						uuid: transaction.hash,
+						datetime: new Date(parseInt(transaction.timeStamp) * 1000).toISOString(),
+						blockHeight,
+						value,
+						from: transaction.from,
+						to: transaction.to
+					}, true);
+				}
 				address.lastBlock = blockHeight;
 			}
 
-			if (response.last) {
+			if (transactions.length < 10000) {
 				delete address.lastBlock;
 				address.loadTime = Date.now() - new Date(address.enabledTime).valueOf();
 				logger.info(`History of address ${address.address} fetched in ${moment.duration(address.loadTime).humanize()}`);
@@ -156,25 +155,25 @@ async function fetchAddressHistory(address: Address) {
 }
 
 async function syncAddresses() {
-	const latestBlock = await getLatestBlockNumber();
-
-	if (latestBlock <= addresses.lastBlock) {
-		return;
-	}
-
 	const enabledAddresses = addresses.getCompletedEnabled();
 
 	if (R.isEmpty(enabledAddresses)) {
 		return;
 	}
 
-	logger.info(`Synchronizing addresses to latest block #${latestBlock} from block #${addresses.lastBlock} (${latestBlock - addresses.lastBlock} blocks remaining)`);
+	const latestBlock = await getLatestBlockNumber();
+	const lastBlock = addresses.lastBlock + 1;
+	const upToBlock = lastBlock + 10 < latestBlock ? lastBlock + 10 : latestBlock;
 
-	const upToBlock = addresses.lastBlock + 10;
+	if (latestBlock <= lastBlock) {
+		return;
+	}
+
+	logger.info(`Synchronizing addresses from block #${lastBlock} to block #${upToBlock} (${latestBlock - upToBlock} blocks remaining)`);
 
 	let block;
 	let value;
-	for (let blockNumber = addresses.lastBlock + 1; blockNumber <= upToBlock && blockNumber <= latestBlock && process.exitCode === undefined; blockNumber++) {
+	for (let blockNumber = lastBlock; blockNumber <= upToBlock && process.exitCode === undefined; blockNumber++) {
 		try {
 			block = await getBlock(blockNumber, true);
 			logger.info1(`Procesing block #${blockNumber} containing ${block.transactions.length} transactions`);

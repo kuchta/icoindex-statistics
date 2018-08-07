@@ -15,7 +15,7 @@ export interface Message<T> {
 	attributes?: MessageAttributes;
 }
 
-function getClient(): SQS {
+function getClient() {
 	if (client) {
 		return client;
 	} else {

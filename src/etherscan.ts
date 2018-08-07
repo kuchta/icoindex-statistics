@@ -36,27 +36,22 @@ export default class Etherscan extends Remoting {
 		super(apiKey, url);
 	}
 
-	async getAddressTransactions(address: string, startBlock: number) {
+	async getAddressTransactions(address: string, startBlock: number, endBlock: number) {
 		try {
 			let ret = await this._get<Response<ESTransaction>>({
 				module: 'account',
 				action: 'txlist',
+				sort: 'asc',
 				address,
-				startblock: startBlock,
-				sort: 'asc'
+				startBlock,
+				endBlock
 			});
 			if (ret.status === "0") {
-				return {
-					last: true,
-					transactions: []
-				};
+				return [];
 			} else if (ret.status !== "1") {
 				throw new MyError(`getAddressTransactions error: ${ret.message} (${ret.status})`);
 			} else {
-				return {
-					last: ret.result.length < 10000,
-					transactions: ret.result.filter((transaction) => transaction.value !== "0")
-				};
+				return ret.result;
 			}
 		} catch (error) {
 			throw new MyError('getAddressTransactions error', error);

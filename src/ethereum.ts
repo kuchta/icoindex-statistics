@@ -44,6 +44,6 @@ export function isAddress(address: string) {
 	return getClient().utils.isAddress(address);
 }
 
-export function getAddressTransactions(address: string, startBlock: number) {
-	return historyApi.getAddressTransactions(address, startBlock);
+export function getAddressTransactions(address: string, startBlock: number, endBlock: number) {
+	return historyApi.getAddressTransactions(address, startBlock, endBlock);
 }
