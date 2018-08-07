@@ -49,8 +49,6 @@ export function storeService({ fetch = receiveMessage, stopPredicate = () => fal
 	observable.subscribe(
 		nextHandler ? (message) => nextHandler(message) : async (message) => {
 			try {
-				logger.debug('Storing document', message);
-
 				if (message.body && !R.isEmpty(message.body)) {
 					await putItem(message.body);
 					nextThenHandler ? nextThenHandler(message.body) : logger.info1('Succesfully sent to database', message.body);

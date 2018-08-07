@@ -21,7 +21,7 @@ input AddressInput {
 	address: String!
 	startDatetime: Date!
 	endDatetime: Date!
-	granularity: String! # "1 hour/1 day etc. see https://momentjs.com/docs/#/durations
+	granularity: String! # "1 hour/1 day etc. see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html
 }
 type TransactionOutput {
 	address: String!

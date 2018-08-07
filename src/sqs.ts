@@ -1,6 +1,6 @@
 import R from 'ramda';
 import { SQS } from 'aws-sdk';
-import { MessageAttributeValue } from 'aws-sdk/clients/sqs';
+// import { MessageAttributeValue, MessageBodyAttributeMap } from 'aws-sdk/clients/sqs';
 
 import logger from './logger';
 import config from './config';
@@ -13,6 +13,13 @@ export interface Message<T> {
 	receiptHandle: string;
 	body: T;
 	attributes?: MessageAttributes;
+}
+
+type MessageBodyAttributeMap = {[key: string]: MessageAttributeValue};
+
+interface MessageAttributeValue {
+	Type: string;
+	Value: string;
 }
 
 function getClient() {
@@ -43,13 +50,14 @@ export async function receiveMessage<T>(visibilityTimeout?: number) {
 			/* loop is used to satisfy TypeScript checker */
 			for (let message of data.Messages) {
 				if (message.ReceiptHandle && message.Body) {
+					const body = JSON.parse(message.Body);
 					let ret: Message<T> = {
-						body: JSON.parse(JSON.parse(message.Body).Message) as T,
+						body: JSON.parse(body.Message) as T,
 						receiptHandle: message.ReceiptHandle
 					};
 
-					if (message.MessageAttributes) {
-						ret.attributes = R.mapObjIndexed(value => messageAttributeToValue(value), message.MessageAttributes);
+					if (body.MessageAttributes) {
+						ret.attributes = R.mapObjIndexed(value => messageAttributeToValue(value), body.MessageAttributes as MessageBodyAttributeMap);
 					}
 
 					return ret;
@@ -68,11 +76,11 @@ export async function receiveMessage<T>(visibilityTimeout?: number) {
 const valueRegExp = /(.*)\((.*)\)/;
 
 function messageAttributeToValue(attribute: MessageAttributeValue) {
-	if (attribute.DataType === 'Number') {
-		return Number(attribute.StringValue);
-	} else if (attribute.DataType === 'String') {
-		if (attribute.StringValue) {
-			let ret = valueRegExp.exec(attribute.StringValue);
+	if (attribute.Type === 'Number') {
+		return Number(attribute.Value);
+	} else if (attribute.Type === 'String') {
+		if (attribute.Value) {
+			let ret = valueRegExp.exec(attribute.Value);
 			if (ret && ret[1] && ret[2]) {
 				if (ret[1] === 'boolean') {
 					return Boolean(ret[2]);
@@ -82,13 +90,13 @@ function messageAttributeToValue(attribute: MessageAttributeValue) {
 					throw new MyError(`messageAttributeToValue error: Invalid embedded type "${ret[1]}" of value "${ret[2]}"`);
 				}
 			} else {
-				return attribute.StringValue;
+				return attribute.Value;
 			}
 		} else {
 			throw new MyError('messageAttributeToValue error: Value of type string is empty');
 		}
 	} else {
-		throw new MyError(`messageAttributeToValue error: Invalid type "${attribute.DataType}" of value "${attribute.StringValue}"`);
+		throw new MyError(`messageAttributeToValue error: Invalid type "${attribute.Type}" of value "${attribute.Value}"`);
 	}
 }
 

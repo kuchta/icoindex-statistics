@@ -173,8 +173,8 @@ async function syncAddresses() {
 
 	let block;
 	let value;
-	for (let blockNumber = lastBlock; blockNumber <= upToBlock && process.exitCode === undefined; blockNumber++) {
-		try {
+	try {
+		for (let blockNumber = lastBlock; blockNumber <= upToBlock && process.exitCode === undefined; blockNumber++) {
 			block = await getBlock(blockNumber, true);
 			logger.info1(`Procesing block #${blockNumber} containing ${block.transactions.length} transactions`);
 			for (const transaction of block.transactions) {
@@ -191,10 +191,10 @@ async function syncAddresses() {
 				}
 			}
 			addresses.lastBlock = blockNumber;
-		} catch (error) {
-			logger.error('syncAddresses error:', error);
-			logger.debug('block', block);
 		}
+	} catch (error) {
+		logger.error('syncAddresses error:', error);
+		logger.debug('block', block);
 	}
 }
 
@@ -212,7 +212,12 @@ async function generateAddressTransactionHistoryStoredEvent(address: string) {
 	logger.info1(`Generating address transaction history stored event for address: "${address}"`);
 
 	try {
-		await sendMessage({}, { storeEvent: { addressTransactionHistoryStored: address } });
+		await sendMessage({}, {
+			storeEvent: {
+				event: 'addressTransactionHistoryStored',
+				address
+			}
+		});
 	} catch (error) {
 		logger.error('generateAddressHistoryStoredEvent error', error);
 	}
