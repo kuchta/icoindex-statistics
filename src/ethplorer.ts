@@ -1,5 +1,5 @@
 import config from './config';
-import { Transaction } from './interfaces';
+import { Transaction } from './transactions';
 import Remoting from './remoting';
 
 const BASE_URL = 'http://api.ethplorer.io';
@@ -15,12 +15,12 @@ interface EPTransaction {
 }
 
 export default class Ethplorer extends Remoting {
-	constructor(apiKey = config.ETHPLORER_TOKEN, url = BASE_URL) {
-		super(apiKey, url);
+	constructor(url = config.ETHPLORER_URL, apiKey = config.ETHPLORER_TOKEN) {
+		super(url || BASE_URL, apiKey);
 	}
 
 	async getAddressTransactions(address: string, startBlock: number, sort = 'asc') {
-		let ret = await this._get<EPTransaction[]>({
+		let ret = await this._get<EPTransaction[]>('/', {
 			module: 'account',
 			action: 'txlist',
 			address,
@@ -29,9 +29,9 @@ export default class Ethplorer extends Remoting {
 		});
 		return ret.map(transaction => ({
 			uuid: transaction.hash,
+			timeStamp: new Date(transaction.timestamp * 1000).toISOString(),
 			from: transaction.from,
 			to: transaction.to,
-			datetime: new Date(transaction.timestamp * 1000).toISOString(),
 			value: transaction.value
 		} as Transaction));
 	}

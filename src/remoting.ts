@@ -3,13 +3,16 @@ import logger from './logger';
 import { MyError } from './errors';
 
 export default class Remoting {
-	constructor(private apiKey: string, private url: string) {}
+	constructor(private url: string, private apiKey: string) {
+		// logger.debug(`Creating ${this.constructor.name} client with params: url=${url}, apiKey=${apiKey}...`);
+	}
 
-	async _request<T>(method: string, params: object) {
+	async _request<T>(method: string, path: string, params: object) {
 		try {
-			logger.debug(`Calling ${this.constructor.name} API: ${method.toUpperCase()} ${this.url} with params:`, params);
+			const url = `${this.url}${path}`;
+			logger.debug(`Calling ${this.constructor.name} API: ${method.toUpperCase()} ${url} with params:`, params);
 			let startTime = Date.now();
-			let ret = await request[method]({ ...params, strictSSL: true, json: true, apikey: this.apiKey, url: this.url }) as T;
+			let ret = await request[method]({ ...params, strictSSL: true, json: true, apikey: this.apiKey, url: url }) as T;
 			logger.debug(`API Request took ${Date.now() - startTime} ms`);
 			return ret;
 		} catch (error) {
@@ -17,8 +20,21 @@ export default class Remoting {
 		}
 	}
 
-	_get<T>(params: object) {
-		return this._request<T>('get', {
+	_get<T>(path: string, params: object) {
+		return this._request<T>('get', path, {
+			qs: params
+		});
+	}
+
+	_post(path: string, params: object, data: object) {
+		return this._request('post', path, {
+			qs: params,
+			body: data
+		});
+	}
+
+	_del(path: string, params: object) {
+		return this._request('del', path, {
 			qs: params
 		});
 	}

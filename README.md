@@ -44,7 +44,7 @@ The script provides builtin help which can be accessed by --help [-h] parameter.
 
   Commands:
 
-    printConfig                               Print the config
+    config                                    Print the config
     queryService [options]                    GraphQL Server
     storeService [options]                    Push tickers to database
     tickerCli [options]                       Ticker Management Utility

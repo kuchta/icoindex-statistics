@@ -18,16 +18,16 @@ function getClient(): SNS {
 			accessKeyId: config.AWS_ACCESS_ID,
 			secretAccessKey: config.AWS_SECRET_KEY,
 			region: config.AWS_REGION,
-			logger: logger,
+			// logger: logger,
 		});
 		return client;
 	}
 }
 
-export async function sendMessage(message: object, attributes?: MessageAttributes) {
+export async function sendMessage(message: object, attributes?: MessageAttributes, topic?: string) {
 	try {
 		let msg: SNS.Types.PublishInput = {
-			TopicArn: config.AWS_SNS_TOPIC,
+			TopicArn: topic ? topic : config.AWS_SNS_TOPIC,
 			Message: JSON.stringify(message)
 		};
 

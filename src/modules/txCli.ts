@@ -1,38 +1,41 @@
 import config from '../config';
 import logger from '../logger';
-import { Option, AddressMap, AddressMessage } from '../interfaces';
+
+import { MyError } from '../errors';
+import { Option } from '../interfaces';
+import { AddressMap, AddressMessage } from '../transactions';
+
+import { scan, deleteItem } from '../dynamo';
 import { purgeQueue, receiveMessage } from '../sqs';
 import { sendMessage } from '../sns';
-import { scan, deleteItem } from '../dynamo';
-import { MyError } from '../errors';
 import { createIndex, deleteIndex, searchTransactions } from '../elastic';
 
 export const description = 'Ethereum Command Utility';
 export const options: Option[] = [
-	{ option: '--list-queue', description: 'list addresses in queue' },
-	{ option: '--list-db', description: 'list addresses in Dynamo' },
-	{ option: '--enable-address <address>', description: 'enable address' },
-	{ option: '--disable-address <address>', description: 'disable address' },
-	{ option: '--delete-address <address>', description: 'delete address from Dynamo' },
-	{ option: '-S, --search-transactions <address startDatetime endDatetime received|sent', description: 'search transactions in Elastic' },
-	{ option: '-P, --purge-queue', description: 'purge queue' },
-	{ option: '-C, --create-index', description: 'create elastic index' },
-	{ option: '-D, --delete-index', description: 'delete elastic index' },
+	{ option: '--list-addresses', description: 'List addresses in Dynamo' },
+	{ option: '--list-address-queue', description: 'List addresses in queue' },
+	{ option: '--enable-address <address>', description: 'Enable address' },
+	{ option: '--disable-address <address>', description: 'Disable address' },
+	{ option: '--delete-address <address>', description: 'Delete address from Dynamo' },
+	{ option: '-S, --search-transactions <address startDatetime endDatetime received|sent', description: 'Search transactions in Elastic' },
+	{ option: '-P, --purge-queue', description: 'Purge queue' },
+	{ option: '-C, --create-index', description: 'Create elastic index' },
+	{ option: '-D, --delete-index', description: 'Delete elastic index' },
 ];
 
-export default async function main(options: {[key: string]: string}) {
+export default async function main(options: {[ key: string]: string }) {
 	try {
-		if (options.listQueue) {
+		if (options.listAddresses) {
+			const addresses = await scan();
+			logger.info('addresses', addresses);
+		}
+		if (options.listAddressQueue) {
 			let message;
 			while (message = await receiveMessage<AddressMessage>(5)) {
 				if (message && message.body) {
 					logger.info(`address: ${message.body.address}, enabled: ${message.body.enabled}`);
 				}
 			}
-		}
-		if (options.listDb) {
-			let addresses = await scan('address') as AddressMap;
-			logger.info('addresses', addresses);
 		}
 		if (options.enableAddress) {
 			if (typeof options.enableAddress !== 'string') {
@@ -54,7 +57,7 @@ export default async function main(options: {[key: string]: string}) {
 		}
 		if (options.searchTransactions) {
 			let results;
-			let args = options.searchTransactions.split(' ');
+			const args = options.searchTransactions.split(' ');
 			if (args.length !== 4) {
 				throw new MyError('Invalud number of arguments. Expected 4 arguments in double quotes');
 			}
@@ -88,6 +91,13 @@ export default async function main(options: {[key: string]: string}) {
 					type: 'string',
 					index: 'not_analyzed'
 				},
+				blockNumber: {
+					type: 'integer'
+				},
+				timeStamp: {
+					type: 'date',
+					format: 'strict_date_optional_time'
+				},
 				from: {
 					type: 'string',
 					index: 'not_analyzed'
@@ -95,13 +105,6 @@ export default async function main(options: {[key: string]: string}) {
 				to: {
 					type: 'string',
 					index: 'not_analyzed'
-				},
-				datetime: {
-					type: 'date',
-					format: 'strict_date_optional_time'
-				},
-				blockHeight: {
-					type: 'integer'
 				},
 				value: {
 					type: 'long'

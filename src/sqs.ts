@@ -32,7 +32,7 @@ function getClient() {
 			accessKeyId: config.AWS_ACCESS_ID,
 			secretAccessKey: config.AWS_SECRET_KEY,
 			region: config.AWS_REGION,
-			logger: logger,
+			// logger: logger,
 		});
 		return client;
 	}
@@ -40,19 +40,33 @@ function getClient() {
 
 export async function receiveMessage<T>(visibilityTimeout?: number) {
 	try {
-		let params = { QueueUrl: config.AWS_SQS_QUEUE_URL, MaxNumberOfMessages: 1, WaitTimeSeconds: 0 };
-		if (visibilityTimeout != null) {
+		let params = {};
+		if (visibilityTimeout != null && typeof visibilityTimeout === 'number') {
 			params['VisibilityTimeout'] = visibilityTimeout;
 		}
-		let data = await getClient().receiveMessage(params).promise();
+		let ret = await getClient().receiveMessage({ ...params, QueueUrl: config.AWS_SQS_QUEUE_URL, MaxNumberOfMessages: 1, WaitTimeSeconds: 0 }).promise();
 
-		if (data.Messages && data.Messages.length > 0) {
+		if (ret.Messages && ret.Messages.length > 0) {
 			/* loop is used to satisfy TypeScript checker */
-			for (let message of data.Messages) {
-				if (message.ReceiptHandle && message.Body) {
-					const body = JSON.parse(message.Body);
+			for (let message of ret.Messages) {
+				if (message.Body && message.ReceiptHandle) {
+					let body;
+					let content: T;
+
+					try {
+						body = JSON.parse(message.Body);
+					} catch (error) {
+						throw new MyError(`Error parsing message's "Body": ${error.message}`, { object: message });
+					}
+
+					try {
+						content = JSON.parse(body.Message);
+					} catch (error) {
+						throw new MyError(`Error parsing message's "Body.Message": ${error.message}`, { object: message });
+					}
+
 					let ret: Message<T> = {
-						body: JSON.parse(body.Message) as T,
+						body: content,
 						receiptHandle: message.ReceiptHandle
 					};
 
@@ -62,7 +76,7 @@ export async function receiveMessage<T>(visibilityTimeout?: number) {
 
 					return ret;
 				} else {
-					throw new MyError("SQS receiveMessage: Message doesn't contain Body or ReceiptHandle", { object: message });
+					throw new MyError('Message doesn\'t contain "Body" or "ReceiptHandle', { object: message });
 				}
 			}
 		}
@@ -70,6 +84,27 @@ export async function receiveMessage<T>(visibilityTimeout?: number) {
 		return null;
 	} catch (error) {
 		throw new MyError('SQS receiveMessage failed', { error });
+	}
+}
+
+export async function deleteMessage(handle: string) {
+	try {
+		await getClient().deleteMessage({
+			QueueUrl: config.AWS_SQS_QUEUE_URL,
+			ReceiptHandle: handle
+		}).promise();
+	} catch (error) {
+		throw new MyError('SQS deleteMessage failed', { error });
+	}
+}
+
+export async function purgeQueue(queue?: string) {
+	try {
+		await getClient().purgeQueue({
+			QueueUrl: queue || config.AWS_SQS_QUEUE_URL,
+		}).promise();
+	} catch (error) {
+		throw new MyError('SQS purgeQueue failed', { error });
 	}
 }
 
@@ -97,26 +132,5 @@ function messageAttributeToValue(attribute: MessageAttributeValue) {
 		}
 	} else {
 		throw new MyError(`messageAttributeToValue error: Invalid type "${attribute.Type}" of value "${attribute.Value}"`);
-	}
-}
-
-export async function deleteMessage(handle: string) {
-	try {
-		await getClient().deleteMessage({
-			QueueUrl: config.AWS_SQS_QUEUE_URL,
-			ReceiptHandle: handle
-		}).promise();
-	} catch (error) {
-		throw new MyError('SQS deleteMessage failed', { error });
-	}
-}
-
-export async function purgeQueue() {
-	try {
-		await getClient().purgeQueue({
-			QueueUrl: config.AWS_SQS_QUEUE_URL,
-		}).promise();
-	} catch (error) {
-		throw new MyError('SQS purgeQueue failed', { error });
 	}
 }

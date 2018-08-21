@@ -1,26 +1,40 @@
-import moment from 'moment';
-import * as winston /* { LoggerStatic, LoggerInstance, LeveledLogMethod, TransportInstance, LoggerOptions } */ from 'winston';
-export { LeveledLogMethod } from 'winston';
+import util from 'util';
+
+import R from 'ramda';
+import winston from 'winston';
+import { format } from 'logform';
 
 import { MyError } from './errors';
 
-export interface MyLogger extends winston.Winston {
+export { LeveledLogMethod } from 'winston';
+
+const LEVELS = {
+	error: 'red',
+	warning: 'yellow',
+	info: 'cyan',
+	info1: 'magenta',
+	info2: 'blue',
+	debug: 'green',
+};
+
+export interface MyLogger extends winston.Logger {
 	init: (verbose: number, debug: boolean) => void;
 	error: winston.LeveledLogMethod;
 	warning: winston.LeveledLogMethod;
 	info: winston.LeveledLogMethod;
 	info1: winston.LeveledLogMethod;
+	info2: winston.LeveledLogMethod;
 	debug: winston.LeveledLogMethod;
 }
 
-const logger = winston as MyLogger;
+const logger: MyLogger = winston as any;
 
 const config = makeConfig('info');
 logger.configure(config);
 for (let level in config.levels!) {
 	logger[level] = logMessage(level, false);
 }
-logger.addColors(config.colors);
+winston.addColors(LEVELS);
 
 logger.init = (verbose = 0, debug: boolean) => {
 	// console.log(`logger.init(verbose=${verbose}, debug=${debug})`);
@@ -50,30 +64,29 @@ function makeConfig(level: string): winston.LoggerOptions {
 	return {
 		// padLevels: true,
 		level: level,
-		levels: {
-			error: 0,
-			warning: 1,
-			info: 2,
-			info1: 3,
-			debug: 4,
-		},
-		colors: {
-			error: 'red',
-			warning: 'yellow',
-			info: 'blue',
-			info1: 'blue',
-			debug: 'green',
-		},
+		levels: R.zipObj(Object.keys(LEVELS), [...Object.keys(LEVELS).keys()]),
+		format: winston.format.combine(
+			winston.format.colorize({ message: true }),
+			format((info, opts) => {
+				if (info[Symbol.for('splat') as any]) {
+					info.metadata = info[Symbol.for('splat') as any][0]['object'];
+				}
+				return info;
+			})(),
+			winston.format.timestamp({ format: 'hh:mm:ss' }),
+			winston.format.padLevels({ levels: R.zipObj(Object.keys(LEVELS), [...Object.keys(LEVELS).keys()]) }),
+			winston.format.printf(info => {
+				if (info.metadata) {
+					return `${info.timestamp} ${info.level}: ${info.message}\n${util.inspect(info.metadata, { colors: true, depth: 10 })}`;
+				} else {
+					return `${info.timestamp} ${info.level}: ${info.message}`;
+				}
+			}),
+		),
 		transports: [
 			new winston.transports.Console({
 				level: level,
-				timestamp: () => moment().format('HH:mm:ss'),
-				colorize: true,
-				prettyPrint: true,
-				depth: 10,
-				stderrLevels: ['error', 'warning'],
-				// formatter: null
-				// align: true
+				stderrLevels: ['error', 'warning']
 			})
 		]
 	};
@@ -121,7 +134,7 @@ function logMessage(level: string, debug: boolean) {
 		// console.log(`level=${level}, debug=${debug}, message="${message}", object="${JSON.stringify(object)}"`);
 
 		if (object !== undefined) {
-			logger.log(level, message, object);
+			logger.log(level, message, { object });
 		} else {
 			logger.log(level, message);
 		}
@@ -133,9 +146,9 @@ function logMessage(level: string, debug: boolean) {
 function getErrorMessage(error: Error, message?: string): string {
 	let msg;
 	if (message) {
-		msg = `${message}: ${error.toString()}`;
+		msg = `${message}: ${String(error)}`;
 	} else {
-		msg = error.toString();
+		msg = String(error);
 	}
 	if (error instanceof MyError && error.error) {
 		msg = getErrorMessage(error.error, msg);

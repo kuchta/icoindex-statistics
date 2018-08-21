@@ -7,8 +7,8 @@ import httpAWSES from 'http-aws-es';
 import logger, { LeveledLogMethod } from './logger';
 import config from './config';
 import { MyError } from './errors';
-import { Ticker } from './interfaces';
-import { Transaction } from 'web3/types';
+import { Ticker } from './tickers';
+import { Transaction } from './transactions';
 
 class LogToMyLogger {
 	error: LeveledLogMethod;

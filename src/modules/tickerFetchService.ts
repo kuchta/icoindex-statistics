@@ -5,7 +5,10 @@ import { coinmarketcap } from 'ccxt';
 
 import logger from '../logger';
 import config from '../config';
-import { Option, Exchange, CCXTTickers, Ticker } from '../interfaces';
+
+import { Option } from '../interfaces';
+import { Exchange, CCXTTickers, Ticker } from '../tickers';
+
 import { sendMessage } from '../sns';
 
 export const description = 'Fetch tickers from exchange';
@@ -13,20 +16,20 @@ export const options: Option[] = [
 	{ option: '-p, --print [pair]', description: 'Dont\'t save, just print' }
 ];
 
-export default function main(options: {[key: string]: string}) {
+export default function main(options: { [key: string]: string }) {
 	if (options.print) {
-		fetchService({ nextHandler: (ticker) => {
+		tickerFetchService({ nextHandler: (ticker) => {
 			if (!(typeof options.print === 'string' && ticker.pair !== options.print)) {
 				// Object.keys(ticker).forEach(key => ticker[key] === undefined && delete ticker[key]);
 				logger.info('Received from exchange', ticker);
 			}
 		}});
 	} else {
-		fetchService();
+		tickerFetchService();
 	}
 }
 
-export function fetchService({ exchange = new coinmarketcap({ timeout: config.EXCHANGE_TIMEOUT }), stopPredicate = () => false, nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler }: {
+export function tickerFetchService({ exchange = new coinmarketcap({  timeout: config.EXCHANGE_TIMEOUT /* , urls: { api: 'https://api.example.com/data' } */ }), stopPredicate = () => false, nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler }: {
 		exchange?: Exchange,
 		stopPredicate?: () => boolean,
 		nextHandler?: (ticker: Ticker) => void,
@@ -35,7 +38,7 @@ export function fetchService({ exchange = new coinmarketcap({ timeout: config.EX
 		errorHandler?: (error: any) => void,
 		completeHandler?: () => void } = {} ) {
 
-	let observable = timer(0, config.EXCHANGE_INTERVAL).pipe(
+	const observable = timer(0, config.EXCHANGE_INTERVAL).pipe(
 		takeWhile(() => !(stopPredicate() || process.exitCode !== undefined)),
 		flatMap(() => exchange.fetchTickers() as Promise<CCXTTickers>),
 		flatMap((data) => Object.values(data)),

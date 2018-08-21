@@ -1,44 +1,45 @@
 import config from './config';
+import logger from './logger';
 import { MyError } from './errors';
 import Remoting from './remoting';
 
 const BASE_URL = 'http://api.etherscan.io/api';
 
-interface Response<T> {
+export interface Response<T> {
 	status: string;
 	message: string;
 	result: T[];
 }
 
-export interface ESTransaction {
-	blockHash: string;
+export interface Transaction {
+	blockHash?: string;
 	blockNumber: string;
-	confirmations: string;
-	contractAddress: string;
-	cumulativeGasUsed: string;
-	from: string;
-	gas: string;
-	gasPrice: string;
-	gasUsed: string;
-	hash: string;
-	input: string;
-	isError: string;
-	nonce: string;
 	timeStamp: string;
+	transactionIndex?: string;
+	hash: string;
+	from: string;
 	to: string;
-	transactionIndex: string;
-	txreceipt_status: string;
 	value: string;
+	input?: string;
+	gas?: string;
+	gasPrice?: string;
+	gasUsed?: string;
+	nonce?: string;
+	confirmations?: string;
+	contractAddress?: string;
+	cumulativeGasUsed?: string;
+	isError?: string;
+	txreceipt_status?: string;
 }
 
-export default class Etherscan extends Remoting {
-	constructor(apiKey = config.ETHERSCAN_TOKEN, url = BASE_URL) {
-		super(apiKey, url);
+class Etherscan extends Remoting {
+	constructor(url = config.ETHERSCAN_URL, apiKey = config.ETHERSCAN_TOKEN) {
+		super(url || BASE_URL, apiKey);
 	}
 
 	async getAddressTransactions(address: string, startBlock: number, endBlock: number) {
 		try {
-			let ret = await this._get<Response<ESTransaction>>({
+			let ret = await this._get<Response<Transaction>>('/', {
 				module: 'account',
 				action: 'txlist',
 				sort: 'asc',
@@ -57,4 +58,22 @@ export default class Etherscan extends Remoting {
 			throw new MyError('getAddressTransactions error', error);
 		}
 	}
+}
+
+let client: Etherscan;
+
+function getClient() {
+	if (client) {
+		return client;
+	} else {
+		logger.debug(`Creating Etherscan client...`);
+
+		client = new Etherscan();
+
+		return client;
+	}
+}
+
+export function getAddressTransactions(address: string, startBlock: number, endBlock: number) {
+	return getClient().getAddressTransactions(address, startBlock, endBlock);
 }

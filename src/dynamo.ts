@@ -3,6 +3,7 @@ import { DynamoDB } from 'aws-sdk';
 import logger from './logger';
 import config from './config';
 import { MyError } from './errors';
+import { requiredSubselectionMessage } from 'graphql/validation/rules/ScalarLeafs';
 
 let client: DynamoDB | null = null;
 
@@ -16,20 +17,9 @@ function getClient(): DynamoDB {
 			accessKeyId: config.AWS_ACCESS_ID,
 			secretAccessKey: config.AWS_SECRET_KEY,
 			region: config.AWS_REGION,
-			logger: logger
+			// logger: logger
 		});
 		return client;
-	}
-}
-
-export async function putItem(item: object) {
-	try {
-		await getClient().putItem({
-			TableName: config.AWS_DYNAMO_TABLE,
-			Item: DynamoDB.Converter.marshall(item)
-		}).promise();
-	} catch (error) {
-		throw new MyError('Dynamo putItem failed', { error });
 	}
 }
 
@@ -54,30 +44,22 @@ export async function getItem(keyName: string, keyValue: string) {
 	}
 }
 
-export async function scan(keyName: string) {
+export async function putItem(item: object) {
 	try {
-		let result = await getClient().scan({ TableName: config.AWS_DYNAMO_TABLE }).promise();
-		if (result.Items && result.Items.length > 0) {
-			return result.Items.reduce((acc, value) => {
-				let obj = DynamoDB.Converter.unmarshall(value);
-				let key = obj[keyName];
-				// delete obj[keyName];
-				acc[key] = obj;
-				return acc;
-			}, {});
-		} else {
-			return {};
-		}
+		await getClient().putItem({
+			TableName: config.AWS_DYNAMO_TABLE,
+			Item: DynamoDB.Converter.marshall(item)
+		}).promise();
 	} catch (error) {
-		throw new MyError('Dynamo scan failed', { error });
+		throw new MyError('Dynamo putItem failed', { error });
 	}
 }
 
 /* Currently not used */
-export async function deleteItem(keyName: string, keyValue: string) {
+export async function deleteItem(keyName: string, keyValue: string, table?: string) {
 	try {
 		await getClient().deleteItem({
-			TableName: config.AWS_DYNAMO_TABLE,
+			TableName: table || config.AWS_DYNAMO_TABLE,
 			Key: {
 				[keyName]: {
 					S: keyValue
@@ -86,6 +68,46 @@ export async function deleteItem(keyName: string, keyValue: string) {
 		}).promise();
 	} catch (error) {
 		throw new MyError('Dynamo deleteItem failed', { error });
+	}
+}
+
+export async function scan(keyName?: string, removeKey = false) {
+	try {
+		let result = await getClient().scan({ TableName: config.AWS_DYNAMO_TABLE }).promise();
+		if (keyName) {
+			if (result.Items) {
+				return result.Items.reduce((acc, value) => {
+					let obj = DynamoDB.Converter.unmarshall(value);
+					let key = obj[keyName];
+					if (removeKey) {
+						delete obj[keyName];
+					}
+					acc[key] = obj;
+					return acc;
+				}, {});
+			} else {
+				return {};
+			}
+		} else {
+			if (result.Items) {
+				return result.Items.map(value => DynamoDB.Converter.unmarshall(value));
+			} else {
+				return [];
+			}
+		}
+	} catch (error) {
+		throw new MyError('Dynamo scan failed', { error });
+	}
+}
+
+export async function purgeDatabase(keyName: string) {
+	try {
+		const records = await scan() as [];
+		for (const record of records) {
+			await deleteItem(keyName, record[keyName]);
+		}
+	} catch (error) {
+		throw new MyError('Dynamo purgeDatabase failed', { error });
 	}
 }
 

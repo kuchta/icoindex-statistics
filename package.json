@@ -17,7 +17,7 @@
 		"start": "node bin/index.js",
 		"build": "tsc",
 		"lint": "tslint -p . -t verbose",
-		"test": "node bin/index.js tickerTest|npx tap-difflet"
+		"test": "node bin/index.js tickerTest|npx tap-difflet; node bin/index.js transactionTest|npx tap-difflet"
 	},
 	"dependencies": {
 		"@types/elasticsearch": "^5.0.25",
@@ -30,11 +30,12 @@
 		"@types/request-promise-native": "^1.0.15",
 		"@types/tape": "^4.2.32",
 		"@types/uuid": "^3.4.3",
-		"@types/winston": "^2.3.9",
 		"aws-sdk": "^2.279.1",
+		"body-parser": "^1.18.3",
 		"ccxt": "^1.16.87",
 		"commander": "^2.16.0",
 		"elasticsearch": "^15.1.1",
+		"eth-connect": "^0.3.0",
 		"express": "^4.16.3",
 		"express-graphql": "^0.6.12",
 		"graphql": "^0.13.2",
@@ -46,10 +47,8 @@
 		"rxjs": "^6.2.2",
 		"tap-difflet": "^0.7.1",
 		"tape": "^4.9.1",
-		"tokenbucket": "^0.3.2",
 		"uuid": "^3.3.2",
-		"web3": "^1.0.0-beta.34",
-		"winston": "^2.4.3"
+		"winston": "^3.0.0"
 	},
 	"devDependencies": {
 		"tslint": "^5.11.0",

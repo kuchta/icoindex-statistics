@@ -96,7 +96,7 @@ fs.readdirSync(modulesDir).map((file) => {
 			}
 			if (module.options) {
 				module.options.forEach((option: Option) => {
-					command.option(option.option, option.description);
+					command.option(option.option, option.description, option.defaultValue);
 				});
 			}
 			command.action((...options) => {

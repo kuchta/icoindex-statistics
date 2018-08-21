@@ -11,23 +11,43 @@ declare module '*/interfaces' {
 		AWS_ELASTIC_TICKER_TYPE: string;
 		AWS_ELASTIC_TRANSACTION_INDEX: string;
 		AWS_ELASTIC_TRANSACTION_TYPE: string;
-		GRAPHQL_HOST: string;
-		GRAPHQL_PORT: number;
+		QUERYSERVICE_HOST: string;
+		QUERYSERVICE_PORT: number;
+		MOCKSERVICE_HOST: string;
+		MOCKSERVICE_PORT: number;
 		DYNAMO_INTERVAL: number;
 		EXCHANGE_INTERVAL: number;
 		EXCHANGE_TIMEOUT: number;
 		MAX_DATETIME_PROXIMITY: string;
-		ETHEREUM_HOST: string;
+		ETHEREUM_URL: string;
+		ETHERSCAN_URL: string;
 		ETHERSCAN_TOKEN: string;
+		ETHPLORER_URL: string;
 		ETHPLORER_TOKEN: string;
+		BLOCKCYPHER_URL: string;
+		BLOCKCYPHER_TOKEN: string;
 	}
 
 	export type Option = {
 		option: string;
 		description?: string;
+		defaultValue?: string;
 	};
 
-	/* My ticker */
+	export interface MessageAttributes {
+		historical?: boolean;
+		storeEvent?: object;
+	}
+}
+
+declare module '*/fixtures' {
+	export interface Query<Q, R> {
+		query: Q;
+		result: R;
+	}
+}
+
+declare module '*/tickers' {
 	export interface Ticker {
 		uuid: string;
 		exchange: string;
@@ -43,17 +63,12 @@ declare module '*/interfaces' {
 	export interface CCXTTicker {
 		symbol: string;
 		datetime: string;
-		close: number;
+		close?: number;
 	}
 
 	export interface Exchange {
 		id: string;
 		fetchTickers(): Promise<CCXTTickers>;
-	}
-
-	export interface TestQuery {
-		query: TickerInput;
-		result: TickerOutput;
 	}
 
 	/* GraphQL getTokenPairRate input */
@@ -80,9 +95,33 @@ declare module '*/interfaces' {
 		rate?: number;
 	}
 
-	export interface AddressMessage {
-		address: string;
-		enabled: boolean;
+	export interface TickerFixture {
+		pair: string;
+		datetime: string;
+		rate: number;
+	}
+
+	import { Query } from './fixtures';
+
+	export interface TestData {
+		fixtures: TickerFixture[];
+		queries: Query<TickerInput, TickerOutput>[];
+	}
+}
+
+declare module '*/transactions' {
+	export interface Transaction {
+		uuid: string;
+		blockNumber: number;
+		timeStamp: string;
+		from: string;
+		to: string;
+		value: number;
+	}
+
+	export interface AddressMap {
+		lastBlock?: { value: number };
+		[address: string]: Address
 	}
 
 	export interface Address {
@@ -93,24 +132,10 @@ declare module '*/interfaces' {
 		loadTime?: number;
 	}
 
-	export interface AddressMap {
-		lastBlock: { value: number };
-		[address: string]: Address
+	export interface AddressMessage {
+		address: string;
+		enabled: boolean;
 	}
-
-	export interface Transaction {
-		uuid: string;
-		blockHeight: number;
-		datetime: string;
-		value: number;
-		from: string;
-		to: string;
-	}
-
-	export interface MessageAttributes {
-		historical?: boolean;
-		storeEvent?: object;
-	};
 
 	/* GraphQL getAddressTransactions input */
 	export interface AddressInputs {
@@ -124,12 +149,67 @@ declare module '*/interfaces' {
 		granularity: string;
 	}
 
+	/* GraphQL getAddressTransactions output */
+	export interface TransactionOutputs {
+		getAddressTransactions: TransactionOutput[];
+	}
+
 	export interface TransactionOutput {
 		address: string;
 		receivedAmount?: any[];
 		receivedCount?: any[];
 		sentAmount?: any[];
 		sentCount?: any[];
+	}
+
+	import { Block } from './ethreumTypes';
+	import { Query } from './fixtures';
+
+	export interface TestData {
+		fixtures: Block[];
+		queries: Query<AddressInput, TransactionOutput>[];
+	}
+}
+
+declare module '*/ethereumTypes' {
+	export interface Block {
+		number: string;
+		timestamp: string;
+		transactions: Transaction[];
+		hash?: string;
+		transactionsRoot?: string;
+		size?: string;
+		parentHash?: string;
+		stateRoot?: string;
+		receiptsRoot?: string;
+		miner?: string;
+		uncles?: string;
+		sha3Uncles?: string;
+		logsBloom?: string;
+		difficulty?: string;
+		totalDifficulty?: string;
+		extraData?: string;
+		nonce?: string;
+		mixHash?: string;
+		gasLimit?: string;
+		gasUsed?: string;
+	}
+
+	export interface Transaction {
+		blockHash?: string;
+		blockNumber?: string;
+		transactionIndex?: string;
+		hash: string;
+		from: string;
+		to: string;
+		value: string;
+		input?: string;
+		gas?: string;
+		gasPrice?: string;
+		nonce?: string;
+		// r?: string;
+		// s?: string;
+		// v?: string;
 	}
 }
 
@@ -150,13 +230,18 @@ declare module '*/schema.gql' {
 }
 
 declare module '*/testData/tickers.json' {
-	import { TickerOutput } from './interfaces';
-	import { TestQuery } from './interfaces';
-	const content: { fixtures: TickerOutput[], queries: TestQuery[] };
+	import { TestData } from './tickers';
+	const content: TestData;
 	export default content;
 }
 
-declare module 'tokenbucket' {
-	const content: any;
+declare module '*/testData/transactions.json' {
+	import { TestData } from './transactions';
+	const content: TestData;
 	export default content;
 }
+
+// declare module 'tokenbucket' {
+// 	const content: any;
+// 	export default content;
+// }
