@@ -1,3 +1,4 @@
+import util from 'util';
 import path from 'path';
 
 import R from 'ramda';
@@ -8,10 +9,10 @@ import config from '../config';
 import logger from '../logger';
 
 import { Option } from '../interfaces';
-import { TestData, Transaction, TransactionOutput, TransactionOutputs, AddressInput } from '../transactions';
+import { TestData, Transaction, TransactionOutputs } from '../transactions';
 import { Block } from '../ethereumTypes';
 
-import { purgeDatabase } from '../dynamo';
+import { purgeDatabase, deleteItem } from '../dynamo';
 import { purgeQueue } from '../sqs';
 import { sendMessage } from '../sns';
 
@@ -20,13 +21,14 @@ import { txFetchService } from './txFetchService';
 import { storeService } from './storeService';
 import { queryService } from './queryService';
 
-export const description = 'Transaction test pipeline';
+export const description = 'Transaction Test Pipeline';
 export const options: Option[] = [
 	{ option: '--tx-mock-service-host <host>', description: 'Bind txMockService to this host', defaultValue: config.MOCKSERVICE_HOST },
 	{ option: '--tx-mock-service-port <port>', description: 'Bind txMockService to this port', defaultValue: String(config.MOCKSERVICE_PORT) },
 	{ option: '--query-service-host <host>', description: 'Bind queryService to this host', defaultValue: config.QUERYSERVICE_HOST },
 	{ option: '--query-service-port <port>', description: 'Bind queryService to this port', defaultValue: String(config.QUERYSERVICE_PORT) },
 	{ option: '-f, --filename <file>', description: 'Load test data from file <file>', defaultValue: './testData/transactions.json' },
+	{ option: '-n, --start-block-number <number>', description: 'Start with this number as the current block' },
 ];
 
 const ADDRESS_TABLE = 'icoindexstaging.blockchainaddress';
@@ -47,14 +49,13 @@ export default async function main(options: { [key: string]: string }) {
 
 	const testData: TestData = require(path.resolve(process.cwd(), options.filename));
 
+	const startBlockNumber = options.startBlockNumber ? Number(options.startBlockNumber) : Math.floor(testData.fixtures.length / 2);
+
 	const transactions = getTransactions(testData.fixtures);
 	const queries = testData.queries;
 
-	await purgeQueue(ADDRESS_QUEUE);
-	await purgeQueue(TRANSACTION_QUEUE);
-
 	test('txFetchService', async (test) => {
-		test.plan(transactions.length);
+		test.timeoutAfter(60000);
 
 		config.AWS_DYNAMO_TABLE = ADDRESS_TABLE;
 		config.AWS_SQS_QUEUE_URL = ADDRESS_QUEUE;
@@ -62,30 +63,39 @@ export default async function main(options: { [key: string]: string }) {
 		config.ETHEREUM_URL = `http://${txMockServiceHost}:${txMockServicePort}/ethereum`;
 		config.ETHERSCAN_URL = `http://${txMockServiceHost}:${txMockServicePort}/etherscan`;
 
+		logger.warning('Cleaning address database');
 		await purgeDatabase('address');
+
+		logger.warning('Cleaning address queue');
+		await purgeQueue(ADDRESS_QUEUE);
+
+		logger.warning('Cleaning transaction queue');
+		await purgeQueue(TRANSACTION_QUEUE);
+
+		logger.info('Enabling address 0x0000000000000000000000000000000000000001');
 		await sendMessage({ address: '0x0000000000000000000000000000000000000001', enabled: true }, undefined, ADDRESS_TOPIC);
 
-		txMockService(Math.floor(testData.fixtures.length / 2), testData.fixtures, txMockServiceHost, txMockServicePort, (server) => {
+		const server = await txMockService(startBlockNumber, testData.fixtures, txMockServiceHost, txMockServicePort, () => {
 			txFetchService({
-				stopPredicate: () => {
-					if (allDataPassed('sentToQueue', transactions)) {
-						server.close();
-						return true;
-					} else {
-						return false;
-					}
-				},
-				txSaved: (transaction) => checkAndMarkData('sentToQueue', test, transactions, transaction)
+				stopPredicate: () => allDataPassed('sentToQueue', transactions),
+				txSaved: (transaction) => checkAndMarkData('sentToQueue', test, transactions, transaction),
+				complete: () => {
+					server.close();
+					test.end();
+				}
 			});
 		});
 	});
 
-	test('storeService', async (test) => {
-		test.plan(transactions.length);
+	test('storeService', (test) => {
+		test.timeoutAfter(60000);
 
 		config.AWS_DYNAMO_TABLE = TRANSACTION_TABLE;
 		config.AWS_SQS_QUEUE_URL = TRANSACTION_QUEUE;
 		config.AWS_SNS_TOPIC = STORE_TOPIC;
+
+		logger.warning('Cleaning transaction database');
+		transactions.forEach((transaction) => deleteItem('uuid', transaction.uuid));
 
 		storeService({
 			stopPredicate: () => allDataPassed('sentToDB', transactions),
@@ -96,31 +106,32 @@ export default async function main(options: { [key: string]: string }) {
 		});
 	});
 
-	test('queryService', (test) => {
-		test.plan(queries.length);
+	test('queryService', async (test) => {
+		test.timeoutAfter(60000);
 
 		config.AWS_ELASTIC_HOST = ELASTIC_HOST;
 
-		const server = queryService(queryServiceHost, queryServicePort, () => {
-			const client = new GraphQLClient(`http://${queryServiceHost}:${queryServicePort}/graphql`);
-			client.request<TransactionOutputs>(`query MyQuery($addresses: [AddressInput]) {
-				getAddressTransactions(addresses: $addresses) {
-					address,
-					receivedCount,
-					receivedAmount,
-					sentCount,
-					sentAmount
-				}
-			}`, { addresses: R.map(R.prop('query'), queries) })
-			.then((data) => {
+		const server = queryService(queryServiceHost, queryServicePort, async () => {
+			try {
+				const client = new GraphQLClient(`http://${queryServiceHost}:${queryServicePort}/graphql`);
+				const result = await client.request<TransactionOutputs>(`query MyQuery($addresses: [AddressInput]) {
+					getAddressTransactions(addresses: $addresses) {
+						address,
+						receivedCount,
+						receivedAmount,
+						sentCount,
+						sentAmount
+					}
+				}`, { addresses: R.map(R.prop('query'), queries) });
+				const results = result.getAddressTransactions;
+				queries.forEach((query, i) => test.same([i], query.result, `queryElastic address=${results[i].address}, receivedAmount=${results[i].receivedAmount}, receivedCount=${results[i].receivedCount}, sentAmount=${results[i].sentAmount}, sentCount=${results[i].sentCount}`));
 				server.close();
-				const results = data.getAddressTransactions;
-				queries.forEach((query, i) => test.same(results[i], query.result, `address=${results[i].address}, receivedAmount=${results[i].receivedAmount}, receivedCount=${results[i].receivedCount}, sentAmount=${results[i].sentAmount}, sentCount=${results[i].sentCount}`));
 				test.end();
-			}).catch((error) => {
+			} catch (error) {
 				server.close();
 				test.fail(error);
-			});
+				test.end();
+			}
 		});
 	});
 }
@@ -140,13 +151,19 @@ function checkAndMarkData(mark: string, test: Test, transactions: Transaction[],
 		transaction.value === data.value
 	);
 	if (index >= 0) {
-		checkedIndexes[mark].add(index);
-		test.same(transaction, transactions[index], `${mark}: timeStamp=${transaction.timeStamp}, from=${transaction.from}, to=${transaction.to}, value=${transaction.value}`);
+		if (checkedIndexes[mark].has(index)) {
+			test.fail(`${mark}: Duplicate transaction: uuid=${transaction.uuid}, timeStamp=${transaction.timeStamp}, value=${transaction.value}`);
+		} else {
+			checkedIndexes[mark].add(index);
+			test.same(transaction, transactions[index], `${mark}: uuid=${transaction.uuid}, timeStamp=${transaction.timeStamp}, value=${transaction.value}`);
+		}
+	} else {
+		test.fail(`${mark}: Unknown transaction: ${util.inspect(transaction, { colors: true, depth: 10 })}`);
 	}
 }
 
 function allDataPassed(mark: string, transactions: Transaction[]) {
-	return checkedIndexes[mark].size >= transactions.length ? true : false;
+	return checkedIndexes[mark].size >= transactions.length;
 }
 
 function getTransactions(blocks: Block[]): Transaction[] {

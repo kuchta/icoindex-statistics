@@ -11,9 +11,10 @@ export default class Remoting {
 		try {
 			const url = `${this.url}${path}`;
 			logger.debug(`Calling ${this.constructor.name} API: ${method.toUpperCase()} ${url} with params:`, params);
-			let startTime = Date.now();
-			let ret = await request[method]({ ...params, strictSSL: true, json: true, apikey: this.apiKey, url: url }) as T;
+			const startTime = Date.now();
+			const ret = await request[method]({ ...params, strictSSL: true, json: true, apikey: this.apiKey, url: url }) as T;
 			logger.debug(`API Request took ${Date.now() - startTime} ms`);
+
 			return ret;
 		} catch (error) {
 			throw new MyError(`${this.constructor.name} request failed`, { error });

@@ -20,7 +20,7 @@ export default class Ethplorer extends Remoting {
 	}
 
 	async getAddressTransactions(address: string, startBlock: number, sort = 'asc') {
-		let ret = await this._get<EPTransaction[]>('/', {
+		const ret = await this._get<EPTransaction[]>('/', {
 			module: 'account',
 			action: 'txlist',
 			address,

@@ -15,7 +15,7 @@ import { purgeQueue as purgeQ, receiveMessage, deleteMessage } from '../sqs';
 import { sendMessage } from '../sns';
 import { getLatestBlockNumber, getBlock, getAddressTransactions, isAddress } from '../ethereum';
 
-export const description = 'Fetch address transactions';
+export const description = 'Transaction Fetch Service';
 export const options: Option[] = [
 	{ option: '-D, --purge-database', description: 'Purge database' },
 	{ option: '-Q, --purge-queue', description: 'Purge queue' },
@@ -40,11 +40,12 @@ export default function main(options: { [key: string]: string }) {
 	txFetchService({ purgeDatabase: Boolean(options.purgeDatabase), purgeQueue: Boolean(options.purgeQueue) });
 }
 
-export async function txFetchService({ purgeDatabase = false, purgeQueue = false, stopPredicate = () => false, txSaved = (transaction) => null }: {
+export async function txFetchService({ purgeDatabase = false, purgeQueue = false, stopPredicate = () => false, txSaved = (transaction) => null, complete = () => null }: {
 		purgeDatabase?: boolean,
 		purgeQueue?: boolean,
 		stopPredicate?: () => boolean,
-		txSaved?: (transaction: Transaction) => void } = {}) {
+		txSaved?: (transaction: Transaction) => void,
+		complete?: () => void } = {}) {
 
 	stopPred = stopPredicate;
 	txSav = txSaved;
@@ -53,12 +54,12 @@ export async function txFetchService({ purgeDatabase = false, purgeQueue = false
 
 	if (purgeDatabase) {
 		await purgeD('address');
-		logger.warning('Database purged');
+		logger.warning('Address database purged');
 	}
 
 	if (purgeQueue) {
 		await purgeQ();
-		logger.warning('Queue purged');
+		logger.warning('Address queue purged');
 	}
 
 	addresses = await scan('address') as AddressMap;
@@ -80,25 +81,17 @@ export async function txFetchService({ purgeDatabase = false, purgeQueue = false
 	let lastReportedLastBlock = lastBlock;
 
 	let startTime;
-	let time;
+	let unspentBlockTime;
 
 	let enabledUncompletedAddreses;
 	let enabledCompletedAddresses;
 
-	try {
-		while (!shouldExit()) {
-			startTime = Date.now();
+	while (!shouldExit()) {
+		startTime = Date.now();
 
+		try {
 			enabledUncompletedAddreses = Object.values(getEnabledUncompletedAddresses());
-
-			if (enabledUncompletedAddreses.length > 0) {
-				await loadUncompletedAddresses(enabledUncompletedAddreses);
-			}
-
 			enabledCompletedAddresses = getEnabledCompletedAddresses();
-			if (enabledCompletedAddresses && !R.isEmpty(enabledCompletedAddresses)) {
-				await syncAddresses(enabledCompletedAddresses);
-			}
 
 			if (lastBlock >= latestBlock) {
 				latestBlock = await getLatestBlockNumber();
@@ -113,25 +106,30 @@ export async function txFetchService({ purgeDatabase = false, purgeQueue = false
 				}
 			}
 
+			if (enabledUncompletedAddreses.length > 0) {
+				for (const address of enabledUncompletedAddreses) {
+					await fetchAddressHistory(address);
+				}
+			}
+
+			if (enabledCompletedAddresses && !R.isEmpty(enabledCompletedAddresses)) {
+				await syncAddresses(enabledCompletedAddresses);
+			}
+
 			await checkAddressQueue();
+		} catch (error) {
+			logger.error('Error', error);
+		} finally {
+			unspentBlockTime = 10000 - (Date.now() - startTime);
 
-			time = 10000 - (Date.now() - startTime);
-
-			if (time > 0 && latestBlock === lastBlock && enabledCompletedAddresses && !R.isEmpty(enabledCompletedAddresses)) {
-				logger.debug(`sleeping for ${time / 1000} sec`);
-				await sleep(time);
+			if (unspentBlockTime > 0 && latestBlock === lastBlock && R.isEmpty(enabledUncompletedAddreses) && !shouldExit()) {
+				logger.debug(`sleeping for ${unspentBlockTime / 1000} seconds`);
+				await sleep(unspentBlockTime);
 			}
 		}
-	} catch (error) {
-		logger.error('Error', error);
 	}
-}
-
-async function loadUncompletedAddresses(addresses: Address[]) {
-	logger.debug('Loading uncompleted history for addresses', addresses);
-	for (const address of addresses) {
-		await fetchAddressHistory(address);
-	}
+	complete();
+	logger.info('txFetchService finished');
 }
 
 async function fetchAddressHistory(address: Address) {
@@ -139,23 +137,25 @@ async function fetchAddressHistory(address: Address) {
 		return;
 	}
 
-	let value;
-	let blockNumber;
-	let transaction;
-
 	logger.info(`Fetching history for address "${address.address}"`);
 
 	try {
-		while (address.lastBlock !== undefined && !shouldExit()) {
-			const transactions = await getAddressTransactions(address.address, address.lastBlock + 1, lastBlock);
+		let value;
+		let blockNumber;
+		let transaction;
+		let i = 10;
+		let startTime;
+		let fromBlock = address.lastBlock + 1;
+		while (address.lastBlock !== undefined && i-- > 0 && !shouldExit()) {
+			startTime = Date.now();
 
-			logger.info(`Retrieved transaction history of address ${address.address} from block #${address.lastBlock + 1} to block #${lastBlock} containing ${transactions.length} transactions`);
+			const transactions = await getAddressTransactions(address.address, address.lastBlock + 1, lastBlock);
 
 			for (transaction of transactions) {
 				value = parseInt(transaction.value);
 				blockNumber = parseInt(transaction.blockNumber);
 				if (value !== 0) {
-					saveTransaction({
+					await saveTransaction({
 						uuid: transaction.hash,
 						blockNumber,
 						timeStamp: new Date(parseInt(transaction.timeStamp) * 1000).toISOString(),
@@ -167,16 +167,19 @@ async function fetchAddressHistory(address: Address) {
 				address.lastBlock = blockNumber;
 			}
 
+			logger.debug(`Transaction history of address ${address.address} from block #${fromBlock} to block #${lastBlock} containing ${transactions.length} transactions retrieved and processed in ${humanizeDuration(Date.now() - startTime)}`);
+
 			if (transactions.length < 10000) {
 				delete address.lastBlock;
 				address.loadTime = Date.now() - Date.parse(address.enabledTime);
-				logger.info1(`History of address ${address.address} retrieved in ${moment.duration(address.loadTime).humanize()}`);
+				logger.info1(`History of address ${address.address} retrieved in ${humanizeDuration(address.loadTime)}`);
 				generateAddressTransactionHistoryStoredEvent(address.address);
 			}
 			putItem(address);
+
 		}
 	} catch (error) {
-		logger.error('fetchAddressHistory error:', error);
+		logger.error('fetchAddressHistory error', error);
 	}
 }
 
@@ -185,25 +188,33 @@ async function syncAddresses(enabledAddresses: R.Dictionary<Address>) {
 		return;
 	}
 
-	let block;
-	let transaction;
-	let value;
-
 	const fromBlock = lastBlock + 1;
 	const toBlock = fromBlock + 9 < latestBlock ? fromBlock + 9 : latestBlock;
 
-	logger.info(`Synchronizing addresses from block #${fromBlock} to block #${toBlock} (${latestBlock - toBlock} blocks remaining)`);
+	const remainingBlocks = latestBlock - toBlock;
+	const averageBlockTime = getAverageBlockTime();
+	logger.info(`Synchronizing addresses from block #${fromBlock} to block #${toBlock}: ${remainingBlocks} blocks remaining${remainingBlocks && averageBlockTime ? ' (' + humanizeDuration(remainingBlocks * averageBlockTime) + ')' : ''}`);
+
+	let block;
+	let transaction;
 
 	try {
+		let startTime;
+		let blockTime;
+		let value;
+
 		for (let blockNumber = fromBlock; blockNumber <= toBlock && !shouldExit(); blockNumber++) {
+			startTime = Date.now();
+
 			block = await getBlock(blockNumber, true);
-			logger.info1(`Procesing block #${blockNumber} containing ${block.transactions.length} transactions`);
+
+			// logger.debug(`API Request took ${Date.now() - startTime} ms`);
 			for (transaction of block.transactions) {
 				if (typeof transaction === 'object') {
 					// value = parseFloat(transaction.value);
 					value = transaction.value.toNumber();
 					if (value > 0 && (enabledAddresses.hasOwnProperty(transaction.from) || (transaction.to && enabledAddresses.hasOwnProperty(transaction.to)))) {
-						saveTransaction({
+						await saveTransaction({
 							uuid: transaction.hash,
 							blockNumber: blockNumber,
 							timeStamp: new Date(block.timestamp * 1000).toISOString(),
@@ -215,39 +226,48 @@ async function syncAddresses(enabledAddresses: R.Dictionary<Address>) {
 				}
 			}
 			setLastBlock(blockNumber);
+			blockTime = Date.now() - startTime;
+
+			logger.info1(`Block #${blockNumber} containing ${block.transactions.length} transactions retrieved and processed in ${humanizeDuration(blockTime)}`);
+			updateAverageBlockTime(blockTime);
 		}
 	} catch (error) {
-		logger.error('syncAddresses error:', { error, object: { block, transaction } });
+		logger.error('syncAddresses error', { error, object: { block, transaction } });
 	}
 }
 
 async function checkAddressQueue() {
-	const message = await receiveMessage<AddressMessage>();
+	try {
+		const message = await receiveMessage<AddressMessage>();
 
-	if (message && message.body) {
-		if (!message.body.hasOwnProperty('address')) {
-			logger.warning(`Message doesn't contain required attribute "address"`, message.body);
-		} else if (!message.body.hasOwnProperty('enabled')) {
-			logger.warning(`Message doesn't contain required attribute "enabled"`, message.body);
-		} else {
-			logger.info(`Request for ${message.body.enabled ? 'enabling' : 'disabling'} address "${message.body.address}"`);
-			try {
-				if (message.body.enabled) {
-					enableAddress(message.body.address);
+		if (message) {
+			if (!message.receiptHandle) {
+				logger.warning(`Message doesn't contain required attribute "receiptHandle"`, message);
+			} else {
+				if (!message.body) {
+					logger.warning(`Message doesn't contain required attribute "body"`, message);
+				} else if (!message.body.address) {
+					logger.warning(`Message body doesn't contain required attribute "address"`, message.body);
+				} else if (!message.body.enabled) {
+					logger.warning(`Message body doesn't contain required attribute "enabled"`, message.body);
 				} else {
-					disableAddress(message.body.address);
+					logger.info(`Request for ${message.body.enabled ? 'enabling' : 'disabling'} address "${message.body.address}"`);
+					try {
+						if (message.body.enabled) {
+							enableAddress(message.body.address);
+						} else {
+							disableAddress(message.body.address);
+						}
+					} catch (error) {
+						logger.error(`checkAddressQueue: ${message.body.enabled ? 'enabling' : 'disabling'} address failed`, error);
+					}
 				}
-			} catch (error) {
-				logger.error(`checkAddressQueue failed: ${error}`);
+				deleteMessage(message.receiptHandle);
 			}
-			deleteMessage(message.receiptHandle);
 		}
+	} catch (error) {
+		logger.error('checkAddressQueue failed', error);
 	}
-}
-
-function setLastBlock(num: number) {
-	lastBlock = num;
-	putItem({ address: 'lastBlock', value: lastBlock });
 }
 
 function enableAddress(address: string) {
@@ -276,7 +296,7 @@ function enableAddress(address: string) {
 }
 
 function disableAddress(address: string) {
-	let addressObj = addresses[address];
+	const addressObj = addresses[address];
 	if (!(addressObj && addressObj.enabled)) {
 		throw new MyError('Requested to disable address not enabled. Skipping...');
 	}
@@ -309,6 +329,42 @@ async function generateAddressTransactionHistoryStoredEvent(address: string) {
 	} catch (error) {
 		logger.error('generateAddressHistoryStoredEvent error', error);
 	}
+}
+
+function setLastBlock(num: number) {
+	lastBlock = num;
+	putItem({ address: 'lastBlock', value: lastBlock });
+}
+
+const last100BlockTimes: number[] = [];
+function updateAverageBlockTime(time: number) {
+	last100BlockTimes.push(time);
+	if (last100BlockTimes.length > 100) {
+		last100BlockTimes.shift();
+	}
+}
+
+function humanizeDuration(time: number) {
+	const duration = moment.duration(time);
+	if (duration.years()) {
+		return `${duration.years()} years and ${duration.months()} months`;
+	} else if (duration.months()) {
+		return `${duration.months()} months and ${duration.days()} days`;
+	} else if (duration.days()) {
+		return `${duration.days()} days and ${duration.hours()} hours`;
+	} else if (duration.hours()) {
+		return `${duration.hours()} hours and ${duration.minutes()} minutes`;
+	} if (duration.minutes()) {
+		return `${duration.minutes()} minutes and ${duration.seconds()} seconds`;
+	} if (duration.seconds()) {
+		return `${duration.seconds()} seconds and ${duration.milliseconds()} ms`;
+	} else {
+		return `${duration.milliseconds()} ms`;
+	}
+}
+
+function getAverageBlockTime() {
+	return last100BlockTimes.length > 0 ? last100BlockTimes.reduce((acc, val) => acc + val) / last100BlockTimes.length : null;
 }
 
 function getEnabledAddresses() {

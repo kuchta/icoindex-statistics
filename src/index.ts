@@ -66,11 +66,9 @@ commander
 	.option('-v, --verbose', 'increase verbosity', (v, total) => total + 1, 0)
 	.option('-d, --debug', 'enable debug messages')
 	.on('--help', () => {
-		console.log('');
-		console.log('  Info:');
-		console.log('');
-		console.log('    If you want to terminate the program, hit Ctrl+C and wait for it to shutdown gracefully, hit it twice to shutdown forcefully');
-	  });
+		console.log('\n  Info:\n');
+		console.log('    If you want to terminate the program, hit Ctrl+C and wait for it to shutdown gracefully, hit it twice to shutdown forcefully\n');
+	});
 
 /* Make options from configuration variables */
 Object.keys(config).forEach((key) => {
@@ -80,14 +78,14 @@ Object.keys(config).forEach((key) => {
 });
 
 /* Find all program submodules and load them */
-let modulesDir = path.join(__dirname, 'modules');
+const modulesDir = path.join(__dirname, 'modules');
 fs.readdirSync(modulesDir).map((file) => {
-	let match = file.match(/(.*)\.(js|(?<!d\.)ts)$/);
+	const match = file.match(/(.*)\.(js|(?<!d\.)ts)$/);
 	if (match) {
-		let moduleName = match[1];
+		const moduleName = match[1];
 		const module = require(path.join(modulesDir, moduleName));
 		if (module.default) {
-			let command = commander.command(moduleName);
+			const command = commander.command(moduleName);
 			if (module.description) {
 				command.description(module.description);
 			}

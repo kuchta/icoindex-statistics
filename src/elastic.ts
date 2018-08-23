@@ -30,7 +30,7 @@ class LogToMyLogger {
 	}
 }
 
-let client: Client | null = null;
+let client: Client;
 
 function getClient(): Client {
 	if (client) {
@@ -66,7 +66,7 @@ export function ping() {
 }
 
 export async function getTicker(pair: string, datetime: string, exchange?: string) {
-	let tickers = await searchTickers({ pair, datetime, exchange });
+	const tickers = await searchTickers({ pair, datetime, exchange });
 	if (!tickers || tickers.length < 1) {
 		throw new MyError('No tickers found');
 	}
@@ -90,9 +90,9 @@ export async function searchTickers({ query, pair, datetime, exchange }: { query
 		if (!dt.isValid()) {
 			throw new MyError(`Invalid date format supplied: "${datetime}"`);
 		}
-		let dateProxArray = config.MAX_DATETIME_PROXIMITY.split(' ');
-		let startDateRange = dt.clone().subtract(...dateProxArray);
-		let endDateRange = dt.clone().add(...dateProxArray);
+		const dateProxArray = config.MAX_DATETIME_PROXIMITY.split(' ');
+		const startDateRange = dt.clone().subtract(...dateProxArray);
+		const endDateRange = dt.clone().add(...dateProxArray);
 		query = {
 			query: {
 				function_score: {
@@ -127,7 +127,7 @@ export async function searchTickers({ query, pair, datetime, exchange }: { query
 	}
 
 	try {
-		let response = await getClient().search<Ticker>({
+		const response = await getClient().search<Ticker>({
 			index: config.AWS_ELASTIC_TICKER_INDEX,
 			type: config.AWS_ELASTIC_TICKER_TYPE,
 			body: query
@@ -144,7 +144,7 @@ export async function searchTickers({ query, pair, datetime, exchange }: { query
 }
 
 export async function getAddressAggregations(address: string, startDatetime: string, endDatetime: string, interval: string, received = true) {
-	let query = {
+	const query = {
 		size: 0,
 		query: {
 			and: [{
@@ -181,14 +181,14 @@ export async function getAddressAggregations(address: string, startDatetime: str
 		}
 	};
 
-	let response = await searchTransactions(query);
+	const response = await searchTransactions(query);
 
 	return response && response.aggregations && response.aggregations.transactions && response.aggregations.transactions.buckets as { bucket_stats: { count: 0, min: null, max: null, avg: null, sum: null } }[];
 }
 
 export async function searchTransactions(query: object) {
 	try {
-		let response = await getClient().search<Transaction>({
+		const response = await getClient().search<Transaction>({
 			index: config.AWS_ELASTIC_TRANSACTION_INDEX,
 			type: config.AWS_ELASTIC_TRANSACTION_TYPE,
 			body: query,

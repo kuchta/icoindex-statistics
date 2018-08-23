@@ -7,7 +7,7 @@ export class MyError extends Error {
 		super(message);
 		this.error = error;
 		this.object = object;
-		if (this.error && this.error.hasOwnProperty('code')) {
+		if (this.error && this.error.code) {
 			this.code = this.error.code;
 		}
 	}

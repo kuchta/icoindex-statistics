@@ -11,9 +11,9 @@ import { Exchange, CCXTTickers, Ticker } from '../tickers';
 
 import { sendMessage } from '../sns';
 
-export const description = 'Fetch tickers from exchange';
+export const description = 'Ticker Fetch Service';
 export const options: Option[] = [
-	{ option: '-p, --print [pair]', description: 'Dont\'t save, just print' }
+	{ option: '-p, --print [pair]', description: "Dont't save, just print" }
 ];
 
 export default function main(options: { [key: string]: string }) {
@@ -47,12 +47,30 @@ export function tickerFetchService({ exchange = new coinmarketcap({  timeout: co
 	);
 
 	observable.subscribe(
-		nextHandler ? (ticker) => nextHandler(ticker) : (ticker) => {
-			sendMessage({ uuid: v4(), exchange: ticker.exchange, pair: ticker.pair, datetime: ticker.datetime, rate: ticker.rate })
-			.then(() => nextThenHandler ? nextThenHandler(ticker) : logger.info1('Sucessfully sent to SNS', ticker))
-			.catch((error) => nextErrorHandler ? nextErrorHandler(error) : logger.error('Sending to SNS failed', error));
-		},
-		(error) => errorHandler ? errorHandler(error) : logger.error('Error', error),
-		() => completeHandler ? completeHandler() : logger.info('Completed')
+		nextHandler ? (ticker) => nextHandler(ticker) : async (ticker) => {
+			try {
+				ticker.uuid = v4();
+				await sendMessage(ticker);
+				logger.info1('Sucessfully sent to SNS', ticker);
+				if (nextThenHandler) {
+					nextThenHandler(ticker);
+				}
+			} catch (error) {
+				logger.error('Sending to SNS failed', error);
+				if (nextErrorHandler) {
+					nextErrorHandler(error);
+				}
+			}
+		}, (error) => {
+			logger.error('Error', error);
+			if (errorHandler) {
+				errorHandler(error);
+			}
+		}, () => {
+			if (completeHandler) {
+				completeHandler();
+			}
+			logger.info('tickerFetchService finished');
+		}
 	);
 }

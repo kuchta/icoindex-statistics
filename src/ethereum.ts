@@ -35,11 +35,10 @@ export function getBlock(blockNumber: number, returnTransactionObjects = false) 
 
 // export function getBlocks(blockNumbers: number[], returnTransactionObjects = false) {
 // 	const batch = new (getClient().BatchRequest)();
-// 	for (let blockNumber in blockNumbers) {
+// 	for (const blockNumber in blockNumbers) {
 // 		batch.add(Web3.eth.getBlock.request(blockNumber, returnTransactionObjects));
 // 	}
-// 	let res = batch.execute();
-// 	return res;
+// 	return batch.execute();
 // }
 
 export function isAddress(address: string) {

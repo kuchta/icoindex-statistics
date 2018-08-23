@@ -3,9 +3,8 @@ import { DynamoDB } from 'aws-sdk';
 import logger from './logger';
 import config from './config';
 import { MyError } from './errors';
-import { requiredSubselectionMessage } from 'graphql/validation/rules/ScalarLeafs';
 
-let client: DynamoDB | null = null;
+let client: DynamoDB;
 
 function getClient(): DynamoDB {
 	if (client) {
@@ -25,7 +24,7 @@ function getClient(): DynamoDB {
 
 export async function getItem(keyName: string, keyValue: string) {
 	try {
-		let ret = await getClient().getItem({
+		const ret = await getClient().getItem({
 			TableName: config.AWS_DYNAMO_TABLE,
 			Key: {
 				[keyName]: {
@@ -73,12 +72,12 @@ export async function deleteItem(keyName: string, keyValue: string, table?: stri
 
 export async function scan(keyName?: string, removeKey = false) {
 	try {
-		let result = await getClient().scan({ TableName: config.AWS_DYNAMO_TABLE }).promise();
+		const result = await getClient().scan({ TableName: config.AWS_DYNAMO_TABLE }).promise();
 		if (keyName) {
 			if (result.Items) {
 				return result.Items.reduce((acc, value) => {
-					let obj = DynamoDB.Converter.unmarshall(value);
-					let key = obj[keyName];
+					const obj = DynamoDB.Converter.unmarshall(value);
+					const key = obj[keyName];
 					if (removeKey) {
 						delete obj[keyName];
 					}
@@ -102,7 +101,7 @@ export async function scan(keyName?: string, removeKey = false) {
 
 export async function purgeDatabase(keyName: string) {
 	try {
-		const records = await scan() as [];
+		const records = await scan() as { [key: string]: any; }[];
 		for (const record of records) {
 			await deleteItem(keyName, record[keyName]);
 		}

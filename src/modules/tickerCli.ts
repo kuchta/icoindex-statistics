@@ -27,12 +27,12 @@ export default async function main(options: { [key: string]: string }) {
 				throw new MyError('Invalud number of arguments. Expected 3 arguments in double quotes');
 			}
 			const ret = await sendMessage({ exchange: 'coinmarketcap', pair: args[0], datetime: args[1], rate: parseFloat(args[2]) });
-			logger.info('ticker inserted', ret);
+			logger.info('Ticker inserted', ret);
 		}
 		if (options.removeTicker) {
 			logger.info(`Removing ticker: "${options.removeTicker}"`);
 			const ret = await deleteItem('uuid', options.removeTicker);
-			logger.info('ticker deleted', ret);
+			logger.info('Ticker deleted', ret);
 		}
 		if (options.searchTickers) {
 			let results;
@@ -59,12 +59,12 @@ export default async function main(options: { [key: string]: string }) {
 				})));
 				logger.info(`Count: ${results.length}`);
 			} else {
-				logger.info('no results');
+				logger.info('No results');
 			}
 		}
 		if (options.purgeQueue) {
 			await purgeQueue();
-			logger.info('queue purged');
+			logger.info('Queue purged');
 		}
 		if (options.createIndex) {
 			await createIndex(config.AWS_ELASTIC_TICKER_INDEX, config.AWS_ELASTIC_TICKER_TYPE, {
@@ -76,25 +76,25 @@ export default async function main(options: { [key: string]: string }) {
 					type: 'string',
 					index: 'not_analyzed'
 				},
-				pair: {
-					type: 'string',
-					index: 'not_analyzed'
-				},
 				datetime: {
 					type: 'date',
 					format: 'strict_date_optional_time'
+				},
+				pair: {
+					type: 'string',
+					index: 'not_analyzed'
 				},
 				rate: {
 					type: 'double'
 				}
 			});
-			logger.info('index created');
+			logger.info('Index created');
 		}
 		if (options.deleteIndex) {
 			await deleteIndex(config.AWS_ELASTIC_TICKER_INDEX);
-			logger.info('index deleted');
+			logger.info('Index deleted');
 		}
 	} catch (error) {
-		logger.error('command failed', error);
+		logger.error('Command failed', error);
 	}
 }

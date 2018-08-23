@@ -7,7 +7,7 @@ import config from './config';
 import { MyError } from './errors';
 import { MessageAttributes } from '*/interfaces';
 
-let client: SQS | null = null;
+let client: SQS;
 
 export interface Message<T> {
 	receiptHandle: string;
@@ -44,11 +44,12 @@ export async function receiveMessage<T>(visibilityTimeout?: number) {
 		if (visibilityTimeout != null && typeof visibilityTimeout === 'number') {
 			params['VisibilityTimeout'] = visibilityTimeout;
 		}
-		let ret = await getClient().receiveMessage({ ...params, QueueUrl: config.AWS_SQS_QUEUE_URL, MaxNumberOfMessages: 1, WaitTimeSeconds: 0 }).promise();
 
-		if (ret.Messages && ret.Messages.length > 0) {
+		const messages = await getClient().receiveMessage({ ...params, QueueUrl: config.AWS_SQS_QUEUE_URL, MaxNumberOfMessages: 1, WaitTimeSeconds: 0 }).promise();
+
+		if (messages.Messages && messages.Messages.length > 0) {
 			/* loop is used to satisfy TypeScript checker */
-			for (let message of ret.Messages) {
+			for (const message of messages.Messages) {
 				if (message.Body && message.ReceiptHandle) {
 					let body;
 					let content: T;
@@ -65,7 +66,7 @@ export async function receiveMessage<T>(visibilityTimeout?: number) {
 						throw new MyError(`Error parsing message's "Body.Message": ${error.message}`, { object: message });
 					}
 
-					let ret: Message<T> = {
+					const ret: Message<T> = {
 						body: content,
 						receiptHandle: message.ReceiptHandle
 					};
@@ -76,7 +77,7 @@ export async function receiveMessage<T>(visibilityTimeout?: number) {
 
 					return ret;
 				} else {
-					throw new MyError('Message doesn\'t contain "Body" or "ReceiptHandle', { object: message });
+					throw new MyError(`Message doesn't contain "Body" or "ReceiptHandle`, { object: message });
 				}
 			}
 		}
@@ -115,7 +116,7 @@ function messageAttributeToValue(attribute: MessageAttributeValue) {
 		return Number(attribute.Value);
 	} else if (attribute.Type === 'String') {
 		if (attribute.Value) {
-			let ret = valueRegExp.exec(attribute.Value);
+			const ret = valueRegExp.exec(attribute.Value);
 			if (ret && ret[1] && ret[2]) {
 				if (ret[1] === 'boolean') {
 					return Boolean(ret[2]);

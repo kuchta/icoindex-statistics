@@ -1,3 +1,4 @@
+import util from 'util';
 import path from 'path';
 
 import R from 'ramda';
@@ -5,6 +6,7 @@ import test, { Test } from 'tape';
 import { GraphQLClient } from 'graphql-request';
 
 import config from '../config';
+import logger from '../logger';
 
 import { Option } from '../interfaces';
 import { TestData, TickerFixture, Ticker, CCXTTickers, Exchange, TickerOutputs } from '../tickers';
@@ -15,7 +17,7 @@ import { tickerFetchService } from './tickerFetchService';
 import { storeService } from './storeService';
 import { queryService } from './queryService';
 
-export const description = 'Ticker test pipeline';
+export const description = 'Ticker Test Pipeline';
 export const options: Option[] = [
 	{ option: '--query-service-host <host>', description: 'bind queryService to this host', defaultValue: config.QUERYSERVICE_HOST },
 	{ option: '--query-service-port <port>', description: 'bind queryService to this port', defaultValue: String(config.QUERYSERVICE_PORT) },
@@ -44,13 +46,14 @@ export default async function main(options: { [key: string]: string }) {
 		result: { ...data.result, exchange: EXCHANGE_ID }
 	}));
 
-	await purgeQueue(TICKER_QUEUE);
-
-	test('tickerFetchService', (test) => {
-		test.plan(tickers.length);
+	test('tickerFetchService', async (test) => {
+		test.timeoutAfter(60000);
 
 		config.EXCHANGE_INTERVAL = EXCHANGE_INTERVAL;
 		config.AWS_SNS_TOPIC = TICKER_TOPIC;
+
+		logger.info1('Purging ticker queue');
+		await purgeQueue(TICKER_QUEUE);
 
 		tickerFetchService({
 			exchange: createExchange(tickers),
@@ -63,7 +66,7 @@ export default async function main(options: { [key: string]: string }) {
 	});
 
 	test('storeService', (test) => {
-		test.plan(tickers.length);
+		test.timeoutAfter(60000);
 
 		config.AWS_DYNAMO_TABLE = TICKER_TABLE;
 		config.AWS_SQS_QUEUE_URL = TICKER_QUEUE;
@@ -102,6 +105,7 @@ export default async function main(options: { [key: string]: string }) {
 			}).catch((error) => {
 				server.close();
 				test.fail(error);
+				test.end();
 			});
 		});
 	});
@@ -137,11 +141,17 @@ function checkAndMarkData(mark: string, test: Test, tickers: TickerFixture[], ti
 		ticker.rate === data.rate
 	);
 	if (index >= 0) {
-		test.same(R.dissoc('uuid', ticker), tickers[index], `${mark}: pair=${ticker.pair}, datetime=${ticker.datetime}, rate=${ticker.rate}`);
-		checkedIndexes[mark].add(index);
+		if (checkedIndexes[mark].has(index)) {
+			test.fail(`${mark}: Duplicate ticker received: uuid=${ticker.uuid}, pair=${ticker.pair}, datetime=${ticker.datetime}, rate=${ticker.rate}`);
+		} else {
+			checkedIndexes[mark].add(index);
+			test.same(R.dissoc('uuid', ticker), tickers[index], `${mark}: uuid=${ticker.uuid}, pair=${ticker.pair}, datetime=${ticker.datetime}, rate=${ticker.rate}`);
+		}
+	} else {
+		test.fail(`${mark}: Unknown ticker: ${util.inspect(ticker, { colors: true, depth: 10 })}`);
 	}
 }
 
 function allDataPassed(mark: string, tickers: TickerFixture[]) {
-	return checkedIndexes[mark].size >= tickers.length ? true : false;
+	return checkedIndexes[mark].size >= tickers.length;
 }

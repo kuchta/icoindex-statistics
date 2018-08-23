@@ -39,7 +39,7 @@ function format(value: any) {
 
 /* Load config from environment */
 Object.keys(config).forEach((key) => {
-	let env = process.env[`IS_${key}`];
+	const env = process.env[`IS_${key}`];
 	if (env) {
 		config[key] = env;
 	}

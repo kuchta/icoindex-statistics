@@ -60,7 +60,7 @@ export function queryService(host: string, port: number, listening?: (address: s
 }
 
 rootValue.getTokenPairRate = async function (input: TickerInputs) {
-	logger.info1('Request for getTokenPairRate', input);
+	logger.debug('Request for getTokenPairRate', input);
 	return input.tickers.map(async ({ exchange, pair, datetime }): Promise<TickerOutput> => {
 		exchange = exchange || 'coinmarketcap';
 		const output: TickerOutput = {
@@ -88,7 +88,7 @@ rootValue.getTokenPairRate = async function (input: TickerInputs) {
 		} catch (error) {
 			logger.error(`getTokenPairRate for pair ${pair} failed`, error);
 		} finally {
-			logger.info1('Response for getTokenPairRate', output);
+			logger.debug('Response for getTokenPairRate', output);
 			return output;
 		}
 	});
@@ -96,7 +96,7 @@ rootValue.getTokenPairRate = async function (input: TickerInputs) {
 
 rootValue.getAddressTransactions = async function (input: AddressInputs, ...args: any[]) {
 // rootValue.getAddressTransactions = async function (root: any, args: any, context: any) {
-	logger.info1('Request for getAddressTransactions', input);
+	logger.debug('Request for getAddressTransactions', input);
 	return input.addresses.map(async ({ address, startDatetime, endDatetime, granularity }): Promise<TransactionOutput> => {
 		const output: TransactionOutput = {
 			address
@@ -113,6 +113,7 @@ rootValue.getAddressTransactions = async function (input: AddressInputs, ...args
 			logger.error(`getAddressTransactions for address ${address} failed`, error);
 			throw new MyError(error.message);
 		} finally {
+			logger.debug('Response for getAddressTransactions', output);
 			return output;
 		}
 	});

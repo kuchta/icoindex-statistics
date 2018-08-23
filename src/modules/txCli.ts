@@ -5,18 +5,19 @@ import { MyError } from '../errors';
 import { Option } from '../interfaces';
 import { AddressMap, AddressMessage } from '../transactions';
 
-import { scan, deleteItem } from '../dynamo';
+import { scan, deleteItem, putItem } from '../dynamo';
 import { purgeQueue, receiveMessage } from '../sqs';
 import { sendMessage } from '../sns';
 import { createIndex, deleteIndex, searchTransactions } from '../elastic';
 
-export const description = 'Ethereum Command Utility';
+export const description = 'Transaction Management Utility';
 export const options: Option[] = [
 	{ option: '--list-addresses', description: 'List addresses in Dynamo' },
 	{ option: '--list-address-queue', description: 'List addresses in queue' },
 	{ option: '--enable-address <address>', description: 'Enable address' },
 	{ option: '--disable-address <address>', description: 'Disable address' },
 	{ option: '--delete-address <address>', description: 'Delete address from Dynamo' },
+	{ option: '--set-last-block <number>', description: 'Set last block' },
 	{ option: '-S, --search-transactions <address startDatetime endDatetime received|sent', description: 'Search transactions in Elastic' },
 	{ option: '-P, --purge-queue', description: 'Purge queue' },
 	{ option: '-C, --create-index', description: 'Create elastic index' },
@@ -39,29 +40,34 @@ export default async function main(options: {[ key: string]: string }) {
 		}
 		if (options.enableAddress) {
 			if (typeof options.enableAddress !== 'string') {
-				throw new MyError('address argument is required');
+				throw new MyError('Address argument is required');
 			}
 			sendMessage({ address: options.enableAddress, enabled: true });
 		}
 		if (options.disableAddress) {
 			if (typeof options.disableAddress !== 'string') {
-				throw new MyError('address argument is required');
+				throw new MyError('Address argument is required');
 			}
 			sendMessage({ address: options.disableAddress, enabled: false });
 		}
 		if (options.deleteAddress) {
 			if (typeof options.deleteAddress !== 'string') {
-				throw new MyError('address argument is required');
+				throw new MyError('Address argument is required');
 			}
 			deleteItem('address', options.deleteAddress);
 		}
+		if (options.setLastBlock) {
+			if (typeof options.setLastBlock !== 'string') {
+				throw new MyError('Number argument is required');
+			}
+			putItem({ address: 'lastBlock', value: Number(options.setLastBlock) });
+		}
 		if (options.searchTransactions) {
-			let results;
 			const args = options.searchTransactions.split(' ');
 			if (args.length !== 4) {
 				throw new MyError('Invalud number of arguments. Expected 4 arguments in double quotes');
 			}
-			results = await searchTransactions({
+			const results = await searchTransactions({
 				query: {
 					and: [{
 						term: args[3] === 'received' ? { to: args[0] } : { from: args[0] }
@@ -78,12 +84,12 @@ export default async function main(options: {[ key: string]: string }) {
 			if (results) {
 				logger.info('Results', results);
 			} else {
-				logger.info('no results');
+				logger.info('No results');
 			}
 		}
 		if (options.purgeQueue) {
 			await purgeQueue();
-			logger.info('queue purged');
+			logger.info('Queue purged');
 		}
 		if (options.createIndex) {
 			await createIndex(config.AWS_ELASTIC_TRANSACTION_INDEX, config.AWS_ELASTIC_TRANSACTION_TYPE, {
@@ -110,11 +116,11 @@ export default async function main(options: {[ key: string]: string }) {
 					type: 'long'
 				}
 			});
-			logger.info('index created');
+			logger.info('Index created');
 		}
 		if (options.deleteIndex) {
 			await deleteIndex(config.AWS_ELASTIC_TRANSACTION_INDEX);
-			logger.info('index deleted');
+			logger.info('Index deleted');
 		}
 	} catch (error) {
 		logger.error('Command failed', error);

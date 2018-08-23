@@ -11,23 +11,21 @@ import { Message, purgeQueue as purgeQ, receiveMessage, deleteMessage } from '..
 import { sendMessage } from '../sns';
 import { scan, putItem, deleteItem } from '../dynamo';
 
-export const description = 'Push tickers to database';
+export const description = 'Store Service';
 export const options: Option[] = [
-	{ option: '-P, --print', description: 'Dont\'t save, just print' },
-	{ option: '-D, --purge-database', description: 'Purge database' },
+	{ option: '-P, --print', description: "Dont't save, just print" },
 	{ option: '-Q, --purge-queue', description: 'Purge queue' },
 ];
 
 export default async function main(options: { [key: string]: string }) {
 	if (options.print) {
-		storeService({ purgeDatabase: Boolean(options.purgeDatabase), purgeQueue: Boolean(options.purgeQueue), nextHandler: (message) => logger.info('Received from queue', message) });
+		storeService({ purgeQueue: Boolean(options.purgeQueue), nextHandler: (message) => logger.info('Received from queue', message) });
 	} else {
-		storeService({ purgeDatabase: Boolean(options.purgeDatabase), purgeQueue: Boolean(options.purgeQueue) });
+		storeService({ purgeQueue: Boolean(options.purgeQueue) });
 	}
 }
 
-export async function storeService({ purgeDatabase = false, purgeQueue = false, stopPredicate = () => false, fetch = receiveMessage, nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler }: {
-		purgeDatabase?: boolean,
+export async function storeService({ purgeQueue = false, stopPredicate = () => false, fetch = receiveMessage, nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler }: {
 		purgeQueue?: boolean,
 		stopPredicate?: () => boolean,
 		fetch?: (timeout?: number) => Promise<Message<object> | null>,
@@ -36,14 +34,6 @@ export async function storeService({ purgeDatabase = false, purgeQueue = false, 
 		nextErrorHandler?: (error: any) => void,
 		errorHandler?: (error: any) => void,
 		completeHandler?: () => void } = {} ) {
-
-	if (purgeDatabase) {
-		const records = await scan();
-		for (const record in records) {
-			await deleteItem('uuid', record['uuid']);
-		}
-		logger.warning('Database purged');
-	}
 
 	if (purgeQueue) {
 		await purgeQ();
@@ -61,20 +51,35 @@ export async function storeService({ purgeDatabase = false, purgeQueue = false, 
 			try {
 				if (message.body && !R.isEmpty(message.body)) {
 					await putItem(message.body);
-					nextThenHandler ? nextThenHandler(message.body) : logger.info1('Succesfully sent to database', message.body);
+					logger.info1('Succesfully stored to database', message.body);
+
+					if (nextThenHandler) {
+						nextThenHandler(message.body);
+					}
 				}
 
 				if (message.attributes && message.attributes.storeEvent) {
-					logger.debug('Sending store-event', message.attributes.storeEvent);
-					sendMessage(message.attributes.storeEvent);
+					logger.debug('Sending store-event', { message: message.body, storeEvent: message.attributes.storeEvent });
+					await sendMessage(message.attributes.storeEvent);
 				}
 
-				deleteMessage(message.receiptHandle);
+				await deleteMessage(message.receiptHandle);
 			} catch (error) {
-				nextErrorHandler ? nextErrorHandler(error) : logger.error('Sending to database failed', error);
+				logger.error('Storing to database failed', error);
+				if (nextErrorHandler) {
+					nextErrorHandler(error);
+				}
 			}
-		},
-		(error) => errorHandler ? errorHandler(error) : logger.error('Error', error),
-		() => completeHandler ? completeHandler() : logger.info('Completed')
+		}, (error) => {
+			logger.error('Error', error);
+			if (errorHandler) {
+				errorHandler(error);
+			}
+		}, () => {
+			if (completeHandler) {
+				completeHandler();
+			}
+			logger.info('storeService finished');
+		}
 	);
 }

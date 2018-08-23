@@ -1,3 +1,5 @@
+import path from 'path';
+
 // import { networkInterfaces } from 'os';
 import { AddressInfo } from 'net';
 import { Server } from 'http';
@@ -11,40 +13,38 @@ import logger from '../logger';
 import config from '../config';
 
 import { Option } from '../interfaces';
+import { TestData } from '../transactions';
 import { Block, Transaction } from '../ethereumTypes';
 import { Response as ESResponse, Transaction as ESTransaction } from '../etherscan';
 
 import { getItem } from '../dynamo';
 import { getBlockTransactionHash } from './txTest';
 
-import testData from '../../testData/transactions.json';
-
-export const description = 'Mock Service';
+export const description = 'Transaction Mock Service';
 export const options: Option[] = [
 	{ option: '-H, --host <host>', description: 'Bind service to this host', defaultValue: config.MOCKSERVICE_HOST },
 	{ option: '-p, --port <port>', description: 'Bind service to this port', defaultValue: String(config.MOCKSERVICE_PORT) },
-	{ option: '-n, --current-block-number <number>', description: 'Start with this number as the current block', defaultValue: '4' },
-	{ option: '-f, --filename <file>', description: 'Load mock fixtures from file <file>' },
+	{ option: '-f, --filename <file>', description: 'Load mock fixtures from file <file>', defaultValue: './testData/transactions.json' },
+	{ option: '-n, --start-block-number <number>', description: 'Start with this number as the current block' },
 ];
 
 let _blocks: Block[];
 let _currentBlockNumber: number;
 let _lastBlockNumber: number;
 
-export default function main(options: { [key: string]: string }) {
-	let data = testData.fixtures;
-	if (options.filename) {
-		data = require(options.filename);
-	}
+export default async function main(options: { [key: string]: string }) {
+	const testData: TestData = require(path.resolve(__dirname, '..', '..', options.filename));
 
-	txMockService(Number(options.currentBlockNumber), data, options.host, parseInt(options.port), (server) => {
+	const startBlockNumber = options.startBlockNumber ? Number(options.startBlockNumber) : Math.floor(testData.fixtures.length / 2);
+
+	const server = await txMockService(startBlockNumber, testData.fixtures, options.host, parseInt(options.port), () => {
 		const address = server.address() as AddressInfo;
 		logger.info(`Mock service is listening on ${address.address}:${address.port}`);
 	});
 }
 
-export async function txMockService(currentBlockNumber: number, blocks: Block[], host: string, port: number, listening?: (server: Server) => void) {
-	let app = express();
+export function txMockService(startBlockNumber: number, blocks: Block[], host: string, port: number, listening?: (address: string, port: number) => void) {
+	const app = express();
 
 	app.use(bodyParser.json());
 
@@ -53,7 +53,7 @@ export async function txMockService(currentBlockNumber: number, blocks: Block[],
 
 	// Convert timestamp from RFC-3339 to Unix time
 	_blocks = R.map((block) => R.assoc('timestamp', String(Date.parse(block.timestamp) / 1000), block), blocks);
-	_currentBlockNumber = currentBlockNumber;
+	_currentBlockNumber = startBlockNumber;
 	_lastBlockNumber = Number(R.reduce(R.max, 0, R.pluck('number', _blocks)));
 
 	// let blocks = R.map(R.over(R.lensProp('timestamp'), R.compose(String, Date.parse)), testData.fixtures);
@@ -66,13 +66,14 @@ export async function txMockService(currentBlockNumber: number, blocks: Block[],
 	app.all('/ethereum', mockEthereum);
 	app.all('/etherscan', mockEtherscan);
 
-	let server = app.listen(port, host, () => {
+	const server = app.listen(port, host, () => {
 		process.on('beforeExit', () => {
 			server.close();
 		});
 
 		if (listening) {
-			listening(server);
+			const address = server.address() as AddressInfo;
+			listening(address.address, address.port);
 		}
 	});
 
@@ -80,8 +81,7 @@ export async function txMockService(currentBlockNumber: number, blocks: Block[],
 }
 
 function mockEthereum(req: Request, res: Response) {
-	let request: JsonRPCRequest = req.body;
-	let response: JsonRPCResponse;
+	const request: JsonRPCRequest = req.body;
 	let result;
 
 	if (request.method === 'eth_blockNumber') {
@@ -106,17 +106,18 @@ function mockEthereum(req: Request, res: Response) {
 		return;
 	}
 
-	response = {
+	res.json({
 		id: request.id,
 		jsonrpc: request.jsonrpc,
 		result
-	};
-	res.json(response);
+	} as JsonRPCResponse);
 }
 
 function mockEtherscan(req: Request, res: Response) {
+	let result;
+
 	if (req.query.module === 'account' && req.query.action === 'txlist' && req.query.address) {
-		let data = R.filter((block) => {
+		const data = R.filter((block) => {
 			if (req.query.startBlock && req.query.endBlock) {
 				return parseInt(block.number) >= parseInt(req.query.startBlock) && parseInt(block.number) <= parseInt(req.query.endBlock);
 			} else if (req.query.startBlock) {
@@ -143,15 +144,17 @@ function mockEtherscan(req: Request, res: Response) {
 			// 	R.descend(R.prop('name'))
 			// ], transactions);
 		}
-		let ret: ESResponse<ESTransaction> = {
-			status: R.isEmpty(data) ? '0' : '1',
-			message: R.isEmpty(data) ? 'No transactions found' : 'OK',
-			result: R.isEmpty(data) ? [] : transactions
-		};
-		res.json(ret);
+		result = {
+			status: R.isEmpty(transactions) ? '0' : '1',
+			message: R.isEmpty(transactions) ? 'No transactions found' : 'OK',
+			result: R.isEmpty(transactions) ? [] : transactions
+		} as ESResponse<ESTransaction>;
 	} else {
 		res.sendStatus(400);
+		return;
 	}
+
+	res.json(result);
 }
 
 function getTransactions(blocks: Block[]): ESTransaction[] {
@@ -177,7 +180,7 @@ function getBlockHash(block: Block) {
 }
 
 function logRequest(req: Request, res: Response, next: NextFunction) {
-	let obj = {};
+	const obj = {};
 	if (req.query && !R.isEmpty(req.query)) {
 		obj['query'] = req.query;
 	}
@@ -208,7 +211,9 @@ function logResponse(req: Request, res: Response, next: NextFunction) {
 		let body = String(Buffer.concat(chunks));
 		try {
 			body = JSON.parse(body);
-		} catch (error) {}
+		} catch (error) {
+			logger.error('logResponse error', error);
+		}
 		logger.debug(`Response: ${res.statusCode}`, body);
 		oldEnd.apply(res, restArgs);
 	};

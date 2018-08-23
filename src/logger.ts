@@ -11,8 +11,8 @@ export { LeveledLogMethod } from 'winston';
 const LEVELS = {
 	error: 'red',
 	warning: 'yellow',
-	info: 'cyan',
-	info1: 'magenta',
+	info: 'gray',
+	info1: 'cyan',
 	info2: 'blue',
 	debug: 'green',
 };
@@ -31,14 +31,12 @@ const logger: MyLogger = winston as any;
 
 const config = makeConfig('info');
 logger.configure(config);
-for (let level in config.levels!) {
+for (const level in config.levels!) {
 	logger[level] = logMessage(level, false);
 }
 winston.addColors(LEVELS);
 
 logger.init = (verbose = 0, debug: boolean) => {
-	// console.log(`logger.init(verbose=${verbose}, debug=${debug})`);
-	// Debug level active just after calling this.
 	if (debug) {
 		let config = makeConfig('debug');
 		logger.configure(config);
@@ -46,14 +44,11 @@ logger.init = (verbose = 0, debug: boolean) => {
 		logger.configure(makeConfig('info' + verbose));
 	}
 
-	for (let level in config.levels!) {
-		let match = level.match(/(info)(\d)/);
+	for (const level in config.levels!) {
+		const match = level.match(/(info)(\d)/);
 		if (match && verbose < parseInt(match[2])) {
 			// @ts-ignore: message, meta is declared but its value is never read
 			logger[level] = function (message: string, ...meta: any[]) { return this; };
-		// } else if (level === 'debug' && !debug) {
-		// 	// @ts-ignore: message, meta is declared but its value is never read
-		// 	logger[level] = function (message: string, ...meta: any[]) { return this; };
 		} else {
 			logger[level] = logMessage(level, debug);
 		}
@@ -66,10 +61,10 @@ function makeConfig(level: string): winston.LoggerOptions {
 		level: level,
 		levels: R.zipObj(Object.keys(LEVELS), [...Object.keys(LEVELS).keys()]),
 		format: winston.format.combine(
-			winston.format.colorize({ message: true }),
+			winston.format.colorize({ all: true }),
 			format((info, opts) => {
 				if (info[Symbol.for('splat') as any]) {
-					info.metadata = info[Symbol.for('splat') as any][0]['object'];
+					info.metadata = info[Symbol.for('splat') as any][0];
 				}
 				return info;
 			})(),
@@ -98,17 +93,15 @@ function logMessage(level: string, debug: boolean) {
 		let error;
 		let object;
 
-		// console.log(`message="${message}", obj="${JSON.stringify(obj)}`);
-
 		if (obj != null) {
 			if (obj instanceof Error) {
 				error = obj;
 			} else {
-				if (obj.hasOwnProperty('error') || obj.hasOwnProperty('object')) {
-					if (obj.hasOwnProperty('error')) {
+				if (obj.error || obj.object) {
+					if (obj.error) {
 						error = obj.error;
 					}
-					if (obj.hasOwnProperty('object')) {
+					if (obj.object) {
 						object = obj.object;
 					}
 				} else {
@@ -116,8 +109,6 @@ function logMessage(level: string, debug: boolean) {
 				}
 			}
 		}
-
-		// console.log(`message="${message}", error="${error}", object="${JSON.stringify(object)}"`);
 
 		if (error instanceof Error) {
 			message = getErrorMessage(error, message);
@@ -131,10 +122,8 @@ function logMessage(level: string, debug: boolean) {
 			}
 		}
 
-		// console.log(`level=${level}, debug=${debug}, message="${message}", object="${JSON.stringify(object)}"`);
-
 		if (object !== undefined) {
-			logger.log(level, message, { object });
+			logger.log(level, message, object);
 		} else {
 			logger.log(level, message);
 		}
@@ -177,7 +166,7 @@ function getLastErrorObject(error: Error): Error {
 }
 
 function removeFirstLine(str: string) {
-	let lines = str.split('\n');
+	const lines = str.split('\n');
 	lines.splice(0, 1);
 	return lines.join('\n');
 }

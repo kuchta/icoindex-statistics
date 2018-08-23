@@ -6,7 +6,7 @@ import config from './config';
 import { MyError } from './errors';
 import { MessageAttributes } from '*/interfaces';
 
-let client: SNS | null = null;
+let client: SNS;
 
 function getClient(): SNS {
 	if (client) {
@@ -26,8 +26,8 @@ function getClient(): SNS {
 
 export async function sendMessage(message: object, attributes?: MessageAttributes, topic?: string) {
 	try {
-		let msg: SNS.Types.PublishInput = {
-			TopicArn: topic ? topic : config.AWS_SNS_TOPIC,
+		const msg: SNS.Types.PublishInput = {
+			TopicArn: topic || config.AWS_SNS_TOPIC,
 			Message: JSON.stringify(message)
 		};
 

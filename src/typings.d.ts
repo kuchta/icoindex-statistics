@@ -128,7 +128,7 @@ declare module '*/transactions' {
 		address: string;
 		enabled: boolean;
 		enabledTime: string;
-		lastBlock?: number; // Only used if address is disabled of address history is still loading
+		lastBlock?: number; // Used if address is disabled or when enabled but transaction history is still loading
 		loadTime?: number;
 	}
 
