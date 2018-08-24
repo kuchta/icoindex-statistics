@@ -1,10 +1,11 @@
 import R from 'ramda';
 import { SNS } from 'aws-sdk';
 
+import { MyError } from './errors';
+import { MessageAttributes } from './interfaces';
+
 import logger from './logger';
 import config from './config';
-import { MyError } from './errors';
-import { MessageAttributes } from '*/interfaces';
 
 let client: SNS;
 

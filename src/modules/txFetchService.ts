@@ -2,15 +2,16 @@ import * as readline from 'readline';
 
 import R from 'ramda';
 import moment from 'moment';
-import { TransactionObject } from 'eth-connect/dist/Schema';
-
-import logger from '../logger';
+// import { TransactionObject } from 'eth-connect/dist/Schema';
 
 import { MyError } from '../errors';
 import { Option, MessageAttributes } from '../interfaces';
 import { AddressMap, Address, AddressMessage, Transaction } from '../transactions';
 
-import { scan, purgeDatabase as purgeD, putItem } from '../dynamo';
+import config from '../config';
+import logger from '../logger';
+import { humanizeDuration } from '../utils';
+import { scan, purgeDatabase as purgeD, putItem, deleteItem } from '../dynamo';
 import { purgeQueue as purgeQ, receiveMessage, deleteMessage } from '../sqs';
 import { sendMessage } from '../sns';
 import { getLatestBlockNumber, getBlock, getAddressTransactions, isAddress } from '../ethereum';
@@ -21,20 +22,17 @@ export const options: Option[] = [
 	{ option: '-Q, --purge-queue', description: 'Purge queue' },
 ];
 
-let addresses: AddressMap;
+const MAX_NUMBER_OF_HISTORY_CALLS_PER_CYCLE = config.MAX_NUMBER_OF_HISTORY_CALLS_PER_CYCLE || 10;
+const MAX_NUMBER_OF_CURRENT_CALLS_PER_CYCLE = config.MAX_NUMBER_OF_CURRENT_CALLS_PER_CYCLE || 10;
+
+const WAIT_TIME = 10000;
+
 let latestBlock: number;
-let lastBlock: number;
-let timeoutId: number;
+let lastBlock: number | undefined;
 let stopPred: () => boolean;
 let txSav: (transaction: Transaction) => void;
 
-process.on('SIGINT', () => clearTimeout(timeoutId));
-
-process.on('SIGQUIT', () => {
-	readline.clearLine(process.stdout, 0);
-	readline.cursorTo(process.stdout, 0);
-	logger.debug('addresses', addresses);
-});
+let addresses: AddressMap;
 
 export default function main(options: { [key: string]: string }) {
 	txFetchService({ purgeDatabase: Boolean(options.purgeDatabase), purgeQueue: Boolean(options.purgeQueue) });
@@ -50,8 +48,6 @@ export async function txFetchService({ purgeDatabase = false, purgeQueue = false
 	stopPred = stopPredicate;
 	txSav = txSaved;
 
-	latestBlock = await getLatestBlockNumber();
-
 	if (purgeDatabase) {
 		await purgeD('address');
 		logger.warning('Address database purged');
@@ -66,66 +62,61 @@ export async function txFetchService({ purgeDatabase = false, purgeQueue = false
 
 	if (addresses.lastBlock && addresses.lastBlock.value) {
 		lastBlock = addresses.lastBlock.value;
-		delete addresses.lastBlock;
-	} else {
-		lastBlock = latestBlock;
-		R.forEachObjIndexed((address) => {
-			address.lastBlock = -1;
-			putItem(address);
-		}, addresses);
 	}
 
-	logger.info(`Latest block: #${latestBlock}, last processed block: #${lastBlock}`);
-
-	let lastReportedLatestBlock = latestBlock;
-	let lastReportedLastBlock = lastBlock;
+	latestBlock = await getLatestBlockNumber();
 
 	let startTime;
 	let unspentBlockTime;
 
-	let enabledUncompletedAddreses;
-	let enabledCompletedAddresses;
+	let enabledUncompletedAddreses: AddressMap;
+	let enabledCompletedAddresses: AddressMap;
 
 	while (!shouldExit()) {
 		startTime = Date.now();
 
-		try {
-			enabledUncompletedAddreses = Object.values(getEnabledUncompletedAddresses());
-			enabledCompletedAddresses = getEnabledCompletedAddresses();
+		enabledUncompletedAddreses = getEnabledUncompletedAddresses(addresses);
+		enabledCompletedAddresses = getEnabledCompletedAddresses(addresses);
 
-			if (lastBlock >= latestBlock) {
-				latestBlock = await getLatestBlockNumber();
-				if (!enabledCompletedAddresses || R.isEmpty(enabledCompletedAddresses)) {
+		try {
+			if (R.isEmpty(enabledCompletedAddresses)) {
+				if (R.isEmpty(enabledUncompletedAddreses)) {
+					if (lastBlock) {
+						setLastBlock(undefined);
+					}
+				} else {
 					setLastBlock(latestBlock);
 				}
-				if (latestBlock !== lastReportedLatestBlock || lastBlock !== lastReportedLastBlock) {
-					logger.info(`Latest block: #${latestBlock}, last processed block: #${lastBlock}`);
-
-					lastReportedLatestBlock = latestBlock;
-					lastReportedLastBlock = lastBlock;
-				}
 			}
 
-			if (enabledUncompletedAddreses.length > 0) {
-				for (const address of enabledUncompletedAddreses) {
-					await fetchAddressHistory(address);
-				}
-			}
+			reportLastestBlock();
 
-			if (enabledCompletedAddresses && !R.isEmpty(enabledCompletedAddresses)) {
+			if (!R.isEmpty(enabledCompletedAddresses)) {
 				await syncAddresses(enabledCompletedAddresses);
 			}
 
+			if (!R.isEmpty(enabledUncompletedAddreses)) {
+				for (const address in enabledUncompletedAddreses) {
+					await fetchAddressHistory(enabledUncompletedAddreses[address]);
+				}
+			}
+
 			await checkAddressQueue();
+
+			if (lastBlock && lastBlock >= latestBlock) {
+				latestBlock = await getLatestBlockNumber();
+			}
 		} catch (error) {
 			logger.error('Error', error);
 		} finally {
-			unspentBlockTime = 10000 - (Date.now() - startTime);
+			unspentBlockTime = WAIT_TIME - (Date.now() - startTime);
 
-			if (unspentBlockTime > 0 && latestBlock === lastBlock && R.isEmpty(enabledUncompletedAddreses) && !shouldExit()) {
+			if (unspentBlockTime > 0 && (!lastBlock || latestBlock === lastBlock) && R.isEmpty(enabledUncompletedAddreses) && !shouldExit()) {
 				logger.debug(`sleeping for ${unspentBlockTime / 1000} seconds`);
 				await sleep(unspentBlockTime);
 			}
+
+			logger.debug('tick');
 		}
 	}
 	complete();
@@ -133,7 +124,8 @@ export async function txFetchService({ purgeDatabase = false, purgeQueue = false
 }
 
 async function fetchAddressHistory(address: Address) {
-	if (!address.enabled || address.lastBlock === undefined || address.lastBlock + 1 > lastBlock) {
+	if (!lastBlock || address.lastBlock === undefined || address.lastBlock + 1 > lastBlock) {
+		logger.debug('fetchAddressHistory: Nothing to do');
 		return;
 	}
 
@@ -143,9 +135,9 @@ async function fetchAddressHistory(address: Address) {
 		let value;
 		let blockNumber;
 		let transaction;
-		let i = 10;
 		let startTime;
 		let fromBlock = address.lastBlock + 1;
+		let i = MAX_NUMBER_OF_HISTORY_CALLS_PER_CYCLE;
 		while (address.lastBlock !== undefined && i-- > 0 && !shouldExit()) {
 			startTime = Date.now();
 
@@ -167,33 +159,41 @@ async function fetchAddressHistory(address: Address) {
 				address.lastBlock = blockNumber;
 			}
 
-			logger.debug(`Transaction history of address ${address.address} from block #${fromBlock} to block #${lastBlock} containing ${transactions.length} transactions retrieved and processed in ${humanizeDuration(Date.now() - startTime)}`);
+			logger.info(`Transaction history of address ${address.address} from block #${fromBlock} to block #${address.lastBlock} containing ${transactions.length} transactions retrieved and processed in ${humanizeDuration(Date.now() - startTime)}`);
 
 			if (transactions.length < 10000) {
-				delete address.lastBlock;
 				address.loadTime = Date.now() - Date.parse(address.enabledTime);
+				delete address.lastBlock;
 				logger.info1(`History of address ${address.address} retrieved in ${humanizeDuration(address.loadTime)}`);
 				generateAddressTransactionHistoryStoredEvent(address.address);
 			}
 			putItem(address);
-
 		}
 	} catch (error) {
 		logger.error('fetchAddressHistory error', error);
 	}
 }
 
-async function syncAddresses(enabledAddresses: R.Dictionary<Address>) {
-	if (lastBlock >= latestBlock) {
+async function syncAddresses(enabledAddresses: AddressMap) {
+	if (!lastBlock || lastBlock >= latestBlock) {
+		logger.debug('syncAddresses: Nothing to do');
 		return;
 	}
 
 	const fromBlock = lastBlock + 1;
-	const toBlock = fromBlock + 9 < latestBlock ? fromBlock + 9 : latestBlock;
+	const toBlock = fromBlock + MAX_NUMBER_OF_CURRENT_CALLS_PER_CYCLE < latestBlock ? fromBlock + MAX_NUMBER_OF_CURRENT_CALLS_PER_CYCLE : latestBlock;
 
 	const remainingBlocks = latestBlock - toBlock;
 	const averageBlockTime = getAverageBlockTime();
-	logger.info(`Synchronizing addresses from block #${fromBlock} to block #${toBlock}: ${remainingBlocks} blocks remaining${remainingBlocks && averageBlockTime ? ' (' + humanizeDuration(remainingBlocks * averageBlockTime) + ')' : ''}`);
+
+	let msg = `Synchronizing addresses from block #${fromBlock} to block #${toBlock}`;
+	if (remainingBlocks) {
+		msg += `: ${remainingBlocks} blocks remaining`;
+	}
+	if (remainingBlocks && averageBlockTime) {
+		msg += ` ( ${humanizeDuration(remainingBlocks * averageBlockTime)} )`;
+	}
+	logger.info(msg);
 
 	let block;
 	let transaction;
@@ -208,12 +208,16 @@ async function syncAddresses(enabledAddresses: R.Dictionary<Address>) {
 
 			block = await getBlock(blockNumber, true);
 
-			// logger.debug(`API Request took ${Date.now() - startTime} ms`);
+			if (!block) {
+				logger.warning('syncAddresses: getBlock returned null');
+				return;
+			}
+
 			for (transaction of block.transactions) {
 				if (typeof transaction === 'object') {
 					// value = parseFloat(transaction.value);
 					value = transaction.value.toNumber();
-					if (value > 0 && (enabledAddresses.hasOwnProperty(transaction.from) || (transaction.to && enabledAddresses.hasOwnProperty(transaction.to)))) {
+					if (value > 0 && (transaction.from in enabledAddresses || (transaction.to && transaction.to in enabledAddresses))) {
 						await saveTransaction({
 							uuid: transaction.hash,
 							blockNumber: blockNumber,
@@ -248,13 +252,13 @@ async function checkAddressQueue() {
 					logger.warning(`Message doesn't contain required attribute "body"`, message);
 				} else if (!message.body.address) {
 					logger.warning(`Message body doesn't contain required attribute "address"`, message.body);
-				} else if (!message.body.enabled) {
+				} else if (message.body.enabled == null) {
 					logger.warning(`Message body doesn't contain required attribute "enabled"`, message.body);
 				} else {
 					logger.info(`Request for ${message.body.enabled ? 'enabling' : 'disabling'} address "${message.body.address}"`);
 					try {
 						if (message.body.enabled) {
-							enableAddress(message.body.address);
+							await enableAddress(message.body.address);
 						} else {
 							disableAddress(message.body.address);
 						}
@@ -262,7 +266,7 @@ async function checkAddressQueue() {
 						logger.error(`checkAddressQueue: ${message.body.enabled ? 'enabling' : 'disabling'} address failed`, error);
 					}
 				}
-				deleteMessage(message.receiptHandle);
+				await deleteMessage(message.receiptHandle);
 			}
 		}
 	} catch (error) {
@@ -270,19 +274,18 @@ async function checkAddressQueue() {
 	}
 }
 
-function enableAddress(address: string) {
+async function enableAddress(address: string) {
 	if (!isAddress(address)) {
 		throw new MyError(`Address ${address} is not valid Ethereum address. Skipping...`);
 	}
 
 	let addressObj: Address = addresses[address];
 	if (addressObj) {
-		if (addressObj.enabled) {
+		if (addressObj.enabled === true) {
 			throw new MyError('Requested to enable address already enabled. Skipping...');
-		} else {
-			addressObj.enabled = true;
-			addressObj.enabledTime = new Date().toISOString();
 		}
+		addressObj.enabled = true;
+		addressObj.enabledTime = new Date().toISOString();
 	} else {
 		addressObj = {
 			address,
@@ -292,16 +295,23 @@ function enableAddress(address: string) {
 		};
 		addresses[address] = addressObj;
 	}
+
 	putItem(addressObj);
 }
 
 function disableAddress(address: string) {
-	const addressObj = addresses[address];
-	if (!(addressObj && addressObj.enabled)) {
+	if (!isAddress(address)) {
+		throw new MyError(`Address ${address} is not valid Ethereum address. Skipping...`);
+	}
+
+	let addressObj: Address = addresses[address];
+	if (!addressObj || addressObj.enabled === false) {
 		throw new MyError('Requested to disable address not enabled. Skipping...');
 	}
+
 	addressObj.enabled = false;
 	addressObj.lastBlock = lastBlock;
+
 	putItem(addressObj);
 }
 
@@ -331,9 +341,30 @@ async function generateAddressTransactionHistoryStoredEvent(address: string) {
 	}
 }
 
-function setLastBlock(num: number) {
-	lastBlock = num;
-	putItem({ address: 'lastBlock', value: lastBlock });
+let lastReportedLatestBlock: number;
+let lastReportedLastBlock: number | undefined;
+
+function reportLastestBlock(logLevel = 'info') {
+	if (latestBlock !== lastReportedLatestBlock || lastBlock !== lastReportedLastBlock) {
+		let msg = `Latest block: #${latestBlock}`;
+		if (lastBlock) {
+			msg += `, last processed block: #${lastBlock}`;
+		}
+		logger[logLevel](msg);
+
+		lastReportedLatestBlock = latestBlock;
+		lastReportedLastBlock = lastBlock;
+	}
+}
+
+function setLastBlock(num?: number) {
+	if (num) {
+		lastBlock = num;
+		putItem({ address: 'lastBlock', value: lastBlock });
+	} else {
+		lastBlock = undefined;
+		deleteItem('address', 'lastBlock');
+	}
 }
 
 const last100BlockTimes: number[] = [];
@@ -344,38 +375,19 @@ function updateAverageBlockTime(time: number) {
 	}
 }
 
-function humanizeDuration(time: number) {
-	const duration = moment.duration(time);
-	if (duration.years()) {
-		return `${duration.years()} years and ${duration.months()} months`;
-	} else if (duration.months()) {
-		return `${duration.months()} months and ${duration.days()} days`;
-	} else if (duration.days()) {
-		return `${duration.days()} days and ${duration.hours()} hours`;
-	} else if (duration.hours()) {
-		return `${duration.hours()} hours and ${duration.minutes()} minutes`;
-	} if (duration.minutes()) {
-		return `${duration.minutes()} minutes and ${duration.seconds()} seconds`;
-	} if (duration.seconds()) {
-		return `${duration.seconds()} seconds and ${duration.milliseconds()} ms`;
-	} else {
-		return `${duration.milliseconds()} ms`;
-	}
-}
-
 function getAverageBlockTime() {
 	return last100BlockTimes.length > 0 ? last100BlockTimes.reduce((acc, val) => acc + val) / last100BlockTimes.length : null;
 }
 
-function getEnabledAddresses() {
-	return R.filter(address => address.enabled, addresses);
+function getDisabledAddresses(addresses: AddressMap) {
+	return R.filter(address => address.enabled !== undefined && !address.enabled, addresses);
 }
 
-function getEnabledCompletedAddresses() {
+function getEnabledCompletedAddresses(addresses: AddressMap) {
 	return R.filter(address => address.enabled && address.lastBlock === undefined, addresses);
 }
 
-function getEnabledUncompletedAddresses() {
+function getEnabledUncompletedAddresses(addresses: AddressMap) {
 	return R.filter(address => address.enabled && address.lastBlock !== undefined, addresses);
 }
 
@@ -383,6 +395,17 @@ function shouldExit() {
 	return stopPred() || process.exitCode !== undefined;
 }
 
+let timeoutId: number;
+
 async function sleep(timeout: number) {
 	return new Promise(resolve => timeoutId = setTimeout(resolve, timeout));
 }
+
+process.on('SIGINT', () => clearTimeout(timeoutId));
+
+process.on('SIGQUIT', () => {
+	readline.clearLine(process.stdout, 0);
+	readline.cursorTo(process.stdout, 0);
+	reportLastestBlock('debug');
+	logger.debug('addresses', addresses);
+});

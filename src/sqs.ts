@@ -2,10 +2,11 @@ import R from 'ramda';
 import { SQS } from 'aws-sdk';
 // import { MessageAttributeValue, MessageBodyAttributeMap } from 'aws-sdk/clients/sqs';
 
+import { MyError } from './errors';
+import { MessageAttributes } from './interfaces';
+
 import logger from './logger';
 import config from './config';
-import { MyError } from './errors';
-import { MessageAttributes } from '*/interfaces';
 
 let client: SQS;
 

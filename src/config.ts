@@ -1,5 +1,4 @@
 import logger from './logger';
-import { MyError } from './errors';
 import config from '../config.json';
 
 Object.entries(config).forEach(([key, value]) => {

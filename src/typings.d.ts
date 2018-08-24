@@ -15,10 +15,12 @@ declare module '*/interfaces' {
 		QUERYSERVICE_PORT: number;
 		MOCKSERVICE_HOST: string;
 		MOCKSERVICE_PORT: number;
+		MAX_DATETIME_PROXIMITY: string;
 		DYNAMO_INTERVAL: number;
 		EXCHANGE_INTERVAL: number;
 		EXCHANGE_TIMEOUT: number;
-		MAX_DATETIME_PROXIMITY: string;
+		MAX_NUMBER_OF_HISTORY_CALLS_PER_CYCLE: number;
+		MAX_NUMBER_OF_CURRENT_CALLS_PER_CYCLE: number;
 		ETHEREUM_URL: string;
 		ETHERSCAN_URL: string;
 		ETHERSCAN_TOKEN: string;

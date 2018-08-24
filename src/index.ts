@@ -4,9 +4,9 @@ import * as readline from 'readline';
 
 import commander from 'commander';
 
+import { Option } from './interfaces';
 import logger from './logger';
 import config from './config';
-import { Option } from './interfaces';
 import pkg from '../package.json';
 
 /* Allow to import schema as text */

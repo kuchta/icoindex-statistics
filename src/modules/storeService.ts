@@ -2,14 +2,14 @@ import R from 'ramda';
 import { timer } from 'rxjs';
 import { flatMap, filter, takeWhile } from 'rxjs/operators';
 
+import { Option } from '../interfaces';
+
 import logger from '../logger';
 import config from '../config';
 
-import { Option } from '../interfaces';
-
 import { Message, purgeQueue as purgeQ, receiveMessage, deleteMessage } from '../sqs';
 import { sendMessage } from '../sns';
-import { scan, putItem, deleteItem } from '../dynamo';
+import { putItem } from '../dynamo';
 
 export const description = 'Store Service';
 export const options: Option[] = [

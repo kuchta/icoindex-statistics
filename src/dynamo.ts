@@ -1,8 +1,9 @@
 import { DynamoDB } from 'aws-sdk';
 
+import { MyError } from './errors';
+
 import logger from './logger';
 import config from './config';
-import { MyError } from './errors';
 
 let client: DynamoDB;
 

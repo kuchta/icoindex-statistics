@@ -1,11 +1,10 @@
-import config from '../config';
-import logger from '../logger';
-
 import { MyError } from '../errors';
 import { Option } from '../interfaces';
 import { AddressMap, AddressMessage } from '../transactions';
 
-import { scan, deleteItem, putItem } from '../dynamo';
+import config from '../config';
+import logger from '../logger';
+import { scan, deleteItem, putItem, purgeDatabase } from '../dynamo';
 import { purgeQueue, receiveMessage } from '../sqs';
 import { sendMessage } from '../sns';
 import { createIndex, deleteIndex, searchTransactions } from '../elastic';
@@ -17,6 +16,7 @@ export const options: Option[] = [
 	{ option: '--enable-address <address>', description: 'Enable address' },
 	{ option: '--disable-address <address>', description: 'Disable address' },
 	{ option: '--delete-address <address>', description: 'Delete address from Dynamo' },
+	{ option: '--purge-addresses', description: 'Purge address database' },
 	{ option: '--set-last-block <number>', description: 'Set last block' },
 	{ option: '-S, --search-transactions <address startDatetime endDatetime received|sent', description: 'Search transactions in Elastic' },
 	{ option: '-P, --purge-queue', description: 'Purge queue' },
@@ -56,6 +56,10 @@ export default async function main(options: {[ key: string]: string }) {
 			}
 			deleteItem('address', options.deleteAddress);
 		}
+		if (options.purgeAddresses) {
+			await purgeDatabase('address');
+			logger.info('Address database purged');
+		}
 		if (options.setLastBlock) {
 			if (typeof options.setLastBlock !== 'string') {
 				throw new MyError('Number argument is required');
@@ -73,7 +77,7 @@ export default async function main(options: {[ key: string]: string }) {
 						term: args[3] === 'received' ? { to: args[0] } : { from: args[0] }
 					}, {
 						range: {
-							datetime: {
+							timeStamp: {
 								gte: args[1],
 								lte: args[2],
 							}

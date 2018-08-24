@@ -3,12 +3,11 @@ import { timer } from 'rxjs';
 import { map, flatMap, filter, takeWhile } from 'rxjs/operators';
 import { coinmarketcap } from 'ccxt';
 
-import logger from '../logger';
-import config from '../config';
-
 import { Option } from '../interfaces';
 import { Exchange, CCXTTickers, Ticker } from '../tickers';
 
+import logger from '../logger';
+import config from '../config';
 import { sendMessage } from '../sns';
 
 export const description = 'Ticker Fetch Service';

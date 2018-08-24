@@ -1,9 +1,8 @@
+import { Option } from '../interfaces';
+import { MyError } from '../errors';
+
 import config from '../config';
 import logger from '../logger';
-
-import { MyError } from '../errors';
-import { Option } from '../interfaces';
-
 import { sendMessage } from '../sns';
 import { purgeQueue } from '../sqs';
 import { deleteItem } from '../dynamo';

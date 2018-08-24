@@ -1,6 +1,7 @@
 import request from 'request-promise-native';
-import logger from './logger';
+
 import { MyError } from './errors';
+import logger from './logger';
 
 export default class Remoting {
 	constructor(private url: string, private apiKey: string) {

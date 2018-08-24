@@ -5,13 +5,12 @@ import R from 'ramda';
 import test, { Test } from 'tape';
 import { GraphQLClient } from 'graphql-request';
 
-import config from '../config';
-import logger from '../logger';
-
 import { Option } from '../interfaces';
 import { TestData, Transaction, TransactionOutputs } from '../transactions';
 import { Block } from '../ethereumTypes';
 
+import config from '../config';
+import logger from '../logger';
 import { purgeDatabase, deleteItem } from '../dynamo';
 import { purgeQueue } from '../sqs';
 import { sendMessage } from '../sns';
@@ -20,6 +19,7 @@ import { txMockService } from './txMockService';
 import { txFetchService } from './txFetchService';
 import { storeService } from './storeService';
 import { queryService } from './queryService';
+import { getBlockTransactionHash } from './txMockService';
 
 export const description = 'Transaction Test Pipeline';
 export const options: Option[] = [
@@ -55,7 +55,7 @@ export default async function main(options: { [key: string]: string }) {
 	const queries = testData.queries;
 
 	test('txFetchService', async (test) => {
-		test.timeoutAfter(60000);
+		// test.timeoutAfter(60000);
 
 		config.AWS_DYNAMO_TABLE = ADDRESS_TABLE;
 		config.AWS_SQS_QUEUE_URL = ADDRESS_QUEUE;
@@ -72,7 +72,7 @@ export default async function main(options: { [key: string]: string }) {
 		logger.warning('Cleaning transaction queue');
 		await purgeQueue(TRANSACTION_QUEUE);
 
-		logger.info('Enabling address 0x0000000000000000000000000000000000000001');
+		logger.info('Sending request to enable address 0x0000000000000000000000000000000000000001');
 		await sendMessage({ address: '0x0000000000000000000000000000000000000001', enabled: true }, undefined, ADDRESS_TOPIC);
 
 		const server = await txMockService(startBlockNumber, testData.fixtures, txMockServiceHost, txMockServicePort, () => {
@@ -88,7 +88,7 @@ export default async function main(options: { [key: string]: string }) {
 	});
 
 	test('storeService', (test) => {
-		test.timeoutAfter(60000);
+		// test.timeoutAfter(60000);
 
 		config.AWS_DYNAMO_TABLE = TRANSACTION_TABLE;
 		config.AWS_SQS_QUEUE_URL = TRANSACTION_QUEUE;
@@ -98,8 +98,8 @@ export default async function main(options: { [key: string]: string }) {
 		transactions.forEach((transaction) => deleteItem('uuid', transaction.uuid));
 
 		storeService({
-			stopPredicate: () => allDataPassed('sentToDB', transactions),
-			nextThenHandler: (transaction) => checkAndMarkData('sentToDB', test, transactions, transaction),
+			stopPredicate: () => allDataPassed('storedToDB', transactions),
+			nextThenHandler: (transaction) => checkAndMarkData('storedToDB', test, transactions, transaction),
 			nextErrorHandler: (error) => test.fail(error),
 			errorHandler: (error) => test.fail(error),
 			completeHandler: () => test.end()
@@ -107,7 +107,7 @@ export default async function main(options: { [key: string]: string }) {
 	});
 
 	test('queryService', async (test) => {
-		test.timeoutAfter(60000);
+		// test.timeoutAfter(60000);
 
 		config.AWS_ELASTIC_HOST = ELASTIC_HOST;
 
@@ -138,7 +138,7 @@ export default async function main(options: { [key: string]: string }) {
 
 const checkedIndexes = {
 	sentToQueue: new Set(),
-	sentToDB: new Set(),
+	storedToDB: new Set(),
 };
 
 function checkAndMarkData(mark: string, test: Test, transactions: Transaction[], transaction: Transaction) {
@@ -180,8 +180,4 @@ function getTransactions(blocks: Block[]): Transaction[] {
 		});
 		return transactions;
 	}, [] as Transaction[], blocks);
-}
-
-export function getBlockTransactionHash(block: Block, index: number) {
-	return `0x0000000000000000000000000000000000${String(Number(block.number)).padStart(2, '0')}${String(index).padStart(4, '0')}`;
 }

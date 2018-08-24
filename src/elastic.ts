@@ -4,11 +4,12 @@ import AWS from 'aws-sdk';
 import { integer } from 'aws-sdk/clients/cloudfront';
 import httpAWSES from 'http-aws-es';
 
-import logger, { LeveledLogMethod } from './logger';
-import config from './config';
 import { MyError } from './errors';
 import { Ticker } from './tickers';
 import { Transaction } from './transactions';
+
+import logger, { LeveledLogMethod } from './logger';
+import config from './config';
 
 class LogToMyLogger {
 	error: LeveledLogMethod;
@@ -151,7 +152,7 @@ export async function getAddressAggregations(address: string, startDatetime: str
 				term: received ? { to: address } : { from: address }
 			}, {
 				range: {
-					datetime: {
+					timeStamp: {
 						gte: startDatetime,
 						lte: endDatetime,
 					}
@@ -161,7 +162,7 @@ export async function getAddressAggregations(address: string, startDatetime: str
 		aggregations: {
 			transactions: {
 				date_histogram: {
-					field: 'datetime',
+					field: 'timeStamp',
 					interval,
 					// format: 'yyyy-MM-dd',
 					min_doc_count: 0,

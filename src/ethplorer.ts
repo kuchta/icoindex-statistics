@@ -1,5 +1,5 @@
-import config from './config';
 import { Transaction } from './transactions';
+import config from './config';
 import Remoting from './remoting';
 
 const BASE_URL = 'http://api.ethplorer.io';

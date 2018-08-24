@@ -1,9 +1,9 @@
 // import request from 'request-promise-native';
 // import TokenBucket from 'tokenbucket';
 
+import { MyError } from './errors';
 import config from './config';
 import logger from './logger';
-import { MyError } from './errors';
 import Remoting from './remoting';
 
 const BASE_URL = 'https://api.blockcypher.com/v1';

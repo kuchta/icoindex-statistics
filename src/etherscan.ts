@@ -1,6 +1,6 @@
+import { MyError } from './errors';
 import config from './config';
 import logger from './logger';
-import { MyError } from './errors';
 import Remoting from './remoting';
 
 const BASE_URL = 'http://api.etherscan.io/api';

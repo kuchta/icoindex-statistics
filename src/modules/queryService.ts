@@ -4,13 +4,13 @@ import express from 'express';
 import graphqlHTTP from 'express-graphql';
 import { buildSchema } from 'graphql';
 
-import logger from '../logger';
-import config from '../config';
-
-import { MyError } from '../errors';
 import { Option } from '../interfaces';
 import { TickerInputs, TickerOutput,  } from '../tickers';
 import { AddressInputs, TransactionOutput } from  '../transactions';
+import { MyError } from '../errors';
+
+import logger from '../logger';
+import config from '../config';
 
 import { getTicker, getAddressAggregations } from '../elastic';
 

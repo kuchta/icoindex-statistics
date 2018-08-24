@@ -5,14 +5,12 @@ import R from 'ramda';
 import test, { Test } from 'tape';
 import { GraphQLClient } from 'graphql-request';
 
-import config from '../config';
-import logger from '../logger';
-
 import { Option } from '../interfaces';
 import { TestData, TickerFixture, Ticker, CCXTTickers, Exchange, TickerOutputs } from '../tickers';
 
+import config from '../config';
+import logger from '../logger';
 import { purgeQueue } from '../sqs';
-
 import { tickerFetchService } from './tickerFetchService';
 import { storeService } from './storeService';
 import { queryService } from './queryService';
@@ -73,8 +71,8 @@ export default async function main(options: { [key: string]: string }) {
 		config.AWS_SNS_TOPIC = STORE_TOPIC;
 
 		storeService({
-			stopPredicate: () => allDataPassed('sentToDB', tickers),
-			nextThenHandler: (ticker) => checkAndMarkData('sentToDB', test, tickers, ticker),
+			stopPredicate: () => allDataPassed('storedToDB', tickers),
+			nextThenHandler: (ticker) => checkAndMarkData('storedToDB', test, tickers, ticker),
 			nextErrorHandler: (error) => test.fail(error),
 			errorHandler: (error) => test.fail(error),
 			completeHandler: () => test.end()
@@ -87,26 +85,26 @@ export default async function main(options: { [key: string]: string }) {
 		config.AWS_ELASTIC_HOST = ELASTIC_HOST;
 		config.MAX_DATETIME_PROXIMITY = MAX_DATETIME_PROXIMITY;
 
-		const server = queryService(queryServiceHost, queryServicePort, () => {
-			const client = new GraphQLClient(`http://${queryServiceHost}:${queryServicePort}/graphql`);
-			client.request<TickerOutputs>(`query MyQuery($tickers: [TickerInput]) {
-				getTokenPairRate(tickers: $tickers) {
-					pair
-					exchange
-					datetime
-					rate
-				}
-			}`, { tickers: R.map(R.prop('query'), queries) })
-			.then((data) => {
-				server.close();
-				const results = data.getTokenPairRate;
+		const server = queryService(queryServiceHost, queryServicePort, async () => {
+			try {
+				const client = new GraphQLClient(`http://${queryServiceHost}:${queryServicePort}/graphql`);
+				const result = await client.request<TickerOutputs>(`query MyQuery($tickers: [TickerInput]) {
+					getTokenPairRate(tickers: $tickers) {
+						pair
+						exchange
+						datetime
+						rate
+					}
+				}`, { tickers: R.map(R.prop('query'), queries) });
+				const results = result.getTokenPairRate;
 				queries.forEach((query, i) => test.same(results[i], query.result, `ticker pair=${results[i].pair}, datetime=${results[i].datetime}, rate=${results[i].rate}`));
+				server.close();
 				test.end();
-			}).catch((error) => {
+			} catch (error) {
 				server.close();
 				test.fail(error);
 				test.end();
-			});
+			}
 		});
 	});
 }
@@ -130,7 +128,7 @@ function createExchange(fixtures: TickerFixture[]) {
 
 const checkedIndexes = {
 	sentToQueue: new Set(),
-	sentToDB: new Set(),
+	storedToDB: new Set(),
 };
 
 function checkAndMarkData(mark: string, test: Test, tickers: TickerFixture[], ticker: Ticker) {

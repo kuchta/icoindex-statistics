@@ -11,7 +11,7 @@ export { LeveledLogMethod } from 'winston';
 const LEVELS = {
 	error: 'red',
 	warning: 'yellow',
-	info: 'gray',
+	info: 'white',
 	info1: 'cyan',
 	info2: 'blue',
 	debug: 'green',
