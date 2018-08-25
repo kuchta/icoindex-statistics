@@ -18,6 +18,7 @@ import { getLatestBlockNumber, getBlock, getAddressTransactions, isAddress } fro
 
 export const description = 'Transaction Fetch Service';
 export const options: Option[] = [
+	{ option: '-U, --make-completed-uncompleted', description: 'Make completed addresses uncompleted' },
 	{ option: '-D, --purge-database', description: 'Purge database' },
 	{ option: '-Q, --purge-queue', description: 'Purge queue' },
 ];
@@ -35,10 +36,11 @@ let txSav: (transaction: Transaction) => void;
 let addresses: AddressMap;
 
 export default function main(options: { [key: string]: string }) {
-	txFetchService({ purgeDatabase: Boolean(options.purgeDatabase), purgeQueue: Boolean(options.purgeQueue) });
+	txFetchService({ makeCompletedUncompleted: Boolean(options.makeCompletedUncompleted), purgeDatabase: Boolean(options.purgeDatabase), purgeQueue: Boolean(options.purgeQueue) });
 }
 
-export async function txFetchService({ purgeDatabase = false, purgeQueue = false, stopPredicate = () => false, txSaved = (transaction) => null, complete = () => null }: {
+export async function txFetchService({ makeCompletedUncompleted = false, purgeDatabase = false, purgeQueue = false, stopPredicate = () => false, txSaved = (transaction) => null, complete = () => null }: {
+		makeCompletedUncompleted?: boolean,
 		purgeDatabase?: boolean,
 		purgeQueue?: boolean,
 		stopPredicate?: () => boolean,
@@ -64,21 +66,28 @@ export async function txFetchService({ purgeDatabase = false, purgeQueue = false
 		lastBlock = addresses.lastBlock.value;
 	}
 
+	if (makeCompletedUncompleted) {
+		if (!lastBlock) {
+			logger.error('Last block must be set to make completed addresses uncompleted');
+		} else {
+			doMakeCompletedUncompleted(addresses, lastBlock);
+		}
+	}
+
 	latestBlock = await getLatestBlockNumber();
 
 	let startTime;
-	let unspentBlockTime;
+	let unspentTime;
 
 	let enabledUncompletedAddreses: AddressMap;
 	let enabledCompletedAddresses: AddressMap;
 
 	while (!shouldExit()) {
 		startTime = Date.now();
-
-		enabledUncompletedAddreses = getEnabledUncompletedAddresses(addresses);
-		enabledCompletedAddresses = getEnabledCompletedAddresses(addresses);
-
 		try {
+			enabledUncompletedAddreses = getEnabledUncompletedAddresses(addresses);
+			enabledCompletedAddresses = getEnabledCompletedAddresses(addresses);
+
 			if (R.isEmpty(enabledCompletedAddresses)) {
 				if (R.isEmpty(enabledUncompletedAddreses)) {
 					if (lastBlock) {
@@ -109,11 +118,11 @@ export async function txFetchService({ purgeDatabase = false, purgeQueue = false
 		} catch (error) {
 			logger.error('Error', error);
 		} finally {
-			unspentBlockTime = WAIT_TIME - (Date.now() - startTime);
+			unspentTime = WAIT_TIME - (Date.now() - startTime);
 
-			if (unspentBlockTime > 0 && (!lastBlock || latestBlock === lastBlock) && R.isEmpty(enabledUncompletedAddreses) && !shouldExit()) {
-				logger.debug(`sleeping for ${unspentBlockTime / 1000} seconds`);
-				await sleep(unspentBlockTime);
+			if (unspentTime > 0 && (!lastBlock || latestBlock === lastBlock) && R.isEmpty(getEnabledUncompletedAddresses(addresses)) && !shouldExit()) {
+				logger.debug(`sleeping for ${unspentTime / 1000} seconds`);
+				await sleep(unspentTime);
 			}
 
 			logger.debug('tick');
@@ -191,7 +200,7 @@ async function syncAddresses(enabledAddresses: AddressMap) {
 		msg += `: ${remainingBlocks} blocks remaining`;
 	}
 	if (remainingBlocks && averageBlockTime) {
-		msg += ` ( ${humanizeDuration(remainingBlocks * averageBlockTime)} )`;
+		msg += ` (${humanizeDuration(remainingBlocks * averageBlockTime)})`;
 	}
 	logger.info(msg);
 
@@ -232,7 +241,7 @@ async function syncAddresses(enabledAddresses: AddressMap) {
 			setLastBlock(blockNumber);
 			blockTime = Date.now() - startTime;
 
-			logger.info1(`Block #${blockNumber} containing ${block.transactions.length} transactions retrieved and processed in ${humanizeDuration(blockTime)}`);
+			logger.info1(`Block #${blockNumber} containing ${String(block.transactions.length).padStart(3, ' ')} transactions retrieved and processed in ${String(blockTime).padStart(4, ' ')} ms`);
 			updateAverageBlockTime(blockTime);
 		}
 	} catch (error) {
@@ -379,16 +388,33 @@ function getAverageBlockTime() {
 	return last100BlockTimes.length > 0 ? last100BlockTimes.reduce((acc, val) => acc + val) / last100BlockTimes.length : null;
 }
 
-function getDisabledAddresses(addresses: AddressMap) {
-	return R.filter(address => address.enabled !== undefined && !address.enabled, addresses);
+function doMakeCompletedUncompleted(addresses: AddressMap, lastBlock: number) {
+	R.forEachObjIndexed((address: Address) => address.lastBlock = lastBlock, getEnabledCompletedAddresses(addresses));
 }
 
-function getEnabledCompletedAddresses(addresses: AddressMap) {
-	return R.filter(address => address.enabled && address.lastBlock === undefined, addresses);
+function getDisabledAddresses(addresses: AddressMap): AddressMap {
+	return measureFunctionTime(getDisabledAddresses.name, R.filter((address: Address) => address.enabled !== undefined && !address.enabled), addresses);
 }
 
-function getEnabledUncompletedAddresses(addresses: AddressMap) {
-	return R.filter(address => address.enabled && address.lastBlock !== undefined, addresses);
+function getEnabledCompletedAddresses(addresses: AddressMap): AddressMap {
+	return measureFunctionTime(getEnabledCompletedAddresses.name, R.filter((address: Address) => address.enabled && address.lastBlock === undefined), addresses);
+}
+
+function getEnabledUncompletedAddresses(addresses: AddressMap): AddressMap {
+	return measureFunctionTime(getEnabledUncompletedAddresses.name, R.filter((address: Address) => address.enabled && address.lastBlock !== undefined), addresses);
+}
+
+function measureFunctionTime<T>(funcName: string, func: (...args: T[]) => T, ...args: T[]) {
+	const startTime = Date.now();
+
+	const ret = func(...args);
+
+	const filteringTime = Date.now() - startTime;
+	if (filteringTime > 10) {
+		logger.warning(`Filtering function ${funcName} took ${filteringTime} ms`);
+	}
+
+	return ret;
 }
 
 function shouldExit() {
@@ -407,5 +433,11 @@ process.on('SIGQUIT', () => {
 	readline.clearLine(process.stdout, 0);
 	readline.cursorTo(process.stdout, 0);
 	reportLastestBlock('debug');
-	logger.debug('addresses', addresses);
+	logger.debug('addresses', {
+		enabled: {
+			uncompleted: getEnabledUncompletedAddresses(addresses),
+			completed: getEnabledCompletedAddresses(addresses)
+		},
+		disabled: getDisabledAddresses(addresses)
+	});
 });
