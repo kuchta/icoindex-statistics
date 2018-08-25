@@ -24,9 +24,9 @@ import { getBlockTransactionHash } from './txMockService';
 export const description = 'Transaction Test Pipeline';
 export const options: Option[] = [
 	{ option: '--tx-mock-service-host <host>', description: 'Bind txMockService to this host', defaultValue: config.MOCKSERVICE_HOST },
-	{ option: '--tx-mock-service-port <port>', description: 'Bind txMockService to this port', defaultValue: String(config.MOCKSERVICE_PORT) },
+	{ option: '--tx-mock-service-port <port>', description: 'Bind txMockService to this port', defaultValue: '9000' },
 	{ option: '--query-service-host <host>', description: 'Bind queryService to this host', defaultValue: config.QUERYSERVICE_HOST },
-	{ option: '--query-service-port <port>', description: 'Bind queryService to this port', defaultValue: String(config.QUERYSERVICE_PORT) },
+	{ option: '--query-service-port <port>', description: 'Bind queryService to this port', defaultValue: '9001' },
 	{ option: '-f, --filename <file>', description: 'Load test data from file <file>', defaultValue: './testData/transactions.json' },
 	{ option: '-n, --start-block-number <number>', description: 'Start with this number as the current block' },
 ];
@@ -109,6 +109,9 @@ export default async function main(options: { [key: string]: string }) {
 	test('queryService', async (test) => {
 		// test.timeoutAfter(60000);
 
+		logger.info('Waiting for transations to propagate to elastic');
+		await sleep(5000);
+
 		config.AWS_ELASTIC_HOST = ELASTIC_HOST;
 
 		const server = queryService(queryServiceHost, queryServicePort, async () => {
@@ -124,7 +127,7 @@ export default async function main(options: { [key: string]: string }) {
 					}
 				}`, { addresses: R.map(R.prop('query'), queries) });
 				const results = result.getAddressTransactions;
-				queries.forEach((query, i) => test.same([i], query.result, `queryElastic address=${results[i].address}, receivedAmount=${results[i].receivedAmount}, receivedCount=${results[i].receivedCount}, sentAmount=${results[i].sentAmount}, sentCount=${results[i].sentCount}`));
+				queries.forEach((query, i) => test.same(results[i], query.result, `queryElastic address=${results[i].address}, receivedAmount=${results[i].receivedAmount}, receivedCount=${results[i].receivedCount}, sentAmount=${results[i].sentAmount}, sentCount=${results[i].sentCount}`));
 				server.close();
 				test.end();
 			} catch (error) {
@@ -180,4 +183,8 @@ function getTransactions(blocks: Block[]): Transaction[] {
 		});
 		return transactions;
 	}, [] as Transaction[], blocks);
+}
+
+async function sleep(timeout: number) {
+	return new Promise(resolve => setTimeout(resolve, timeout));
 }
