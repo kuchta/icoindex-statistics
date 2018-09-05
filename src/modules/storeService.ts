@@ -25,7 +25,7 @@ export default async function main(options: { [key: string]: string }) {
 	}
 }
 
-export async function storeService({ purgeQueue = false, stopPredicate = () => false, fetch = receiveMessage, nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler }: {
+export async function storeService({ purgeQueue = false, stopPredicate = () => false, nextHandler, nextThenHandler, nextErrorHandler, errorHandler, completeHandler }: {
 		purgeQueue?: boolean,
 		stopPredicate?: () => boolean,
 		fetch?: (timeout?: number) => Promise<Message<object> | null>,
@@ -42,7 +42,7 @@ export async function storeService({ purgeQueue = false, stopPredicate = () => f
 
 	const observable = timer(0, config.DYNAMO_INTERVAL).pipe(
 		takeWhile(() => !(stopPredicate() || process.exitCode !== undefined)),
-		flatMap(fetch),
+		flatMap(() => receiveMessage()),
 		filter((message): message is Message<object> => message !== null)
 	);
 

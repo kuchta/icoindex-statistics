@@ -4,13 +4,30 @@ declare module '*/interfaces' {
 		AWS_ACCESS_ID: string;
 		AWS_SECRET_KEY: string;
 		AWS_SNS_TOPIC: string;
-		AWS_SQS_QUEUE_URL: string;
+		AWS_SNS_STORE_TOPIC: string;
+		AWS_SQS_URL: string;
 		AWS_DYNAMO_TABLE: string;
 		AWS_ELASTIC_HOST: string;
+
+		/* Tickers */
+		AWS_SNS_TICKER_TOPIC: string;
+		AWS_SQS_TICKER_URL: string;
+		AWS_DYNAMO_TICKER_TABLE: string;
 		AWS_ELASTIC_TICKER_INDEX: string;
 		AWS_ELASTIC_TICKER_TYPE: string;
+
+		/* Transactions */
+		AWS_SNS_TRANSACTION_TOPIC: string;
+		AWS_SQS_TRANSACTION_URL: string;
+		AWS_DYNAMO_TRANSACTION_TABLE: string;
 		AWS_ELASTIC_TRANSACTION_INDEX: string;
 		AWS_ELASTIC_TRANSACTION_TYPE: string;
+
+		/* Addresses */
+		AWS_SNS_ADDRESS_TOPIC: string;
+		AWS_SQS_ADDRESS_URL: string;
+		AWS_DYNAMO_ADDRESS_TABLE: string;
+
 		QUERYSERVICE_HOST: string;
 		QUERYSERVICE_PORT: number;
 		MOCKSERVICE_HOST: string;

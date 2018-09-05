@@ -11,6 +11,7 @@ import { Block } from '../ethereumTypes';
 
 import config from '../config';
 import logger from '../logger';
+import { sleep } from '../utils';
 import { purgeDatabase, deleteItem } from '../dynamo';
 import { purgeQueue } from '../sqs';
 import { sendMessage } from '../sns';
@@ -27,18 +28,9 @@ export const options: Option[] = [
 	{ option: '--tx-mock-service-port <port>', description: 'Bind txMockService to this port', defaultValue: '9000' },
 	{ option: '--query-service-host <host>', description: 'Bind queryService to this host', defaultValue: config.QUERYSERVICE_HOST },
 	{ option: '--query-service-port <port>', description: 'Bind queryService to this port', defaultValue: '9001' },
-	{ option: '-f, --filename <file>', description: 'Load test data from file <file>', defaultValue: './testData/transactions.json' },
+	{ option: '-f, --filename <file>', description: 'Load test data from file <file>' },
 	{ option: '-n, --start-block-number <number>', description: 'Start with this number as the current block' },
 ];
-
-const ADDRESS_TABLE = 'icoindexstaging.blockchainaddress';
-const ADDRESS_QUEUE = 'https://sqs.eu-west-1.amazonaws.com/234333348657/icoindex-staging-queue-blockchain-address';
-const ADDRESS_TOPIC = 'arn:aws:sns:eu-west-1:234333348657:icoindex-staging-event-add-blockchain-address';
-const TRANSACTION_TABLE = 'icoindexstaging.transactionhistory';
-const TRANSACTION_QUEUE = 'https://sqs.eu-west-1.amazonaws.com/234333348657/icoindex-staging-queue-transaction';
-const TRANSACTION_TOPIC = 'arn:aws:sns:eu-west-1:234333348657:icoindex-staging-event-add-transaction';
-const STORE_TOPIC = 'arn:aws:sns:eu-west-1:234333348657:icoindex-staging-event-stats-store';
-const ELASTIC_HOST = 'search-icoindex-staging-gywi2nq266suyvyjfux67mhf44.eu-west-1.es.amazonaws.com';
 
 export default async function main(options: { [key: string]: string }) {
 	const txMockServiceHost = options.txMockServiceHost;
@@ -47,33 +39,38 @@ export default async function main(options: { [key: string]: string }) {
 	const queryServiceHost = options.queryServiceHost;
 	const queryServicePort = parseInt(options.queryServicePort);
 
-	const testData: TestData = require(path.resolve(process.cwd(), options.filename));
+	let testData: TestData;
+	if (options.filename) {
+		testData = require(path.resolve(process.cwd(), options.filename));
+	} else {
+		testData = require(path.resolve(path.dirname(path.dirname(__dirname)), path.join('testData', 'transactions.json')));
+	}
 
 	const startBlockNumber = options.startBlockNumber ? Number(options.startBlockNumber) : Math.floor(testData.fixtures.length / 2);
 
 	const transactions = getTransactions(testData.fixtures);
 	const queries = testData.queries;
 
-	test('txFetchService', async (test) => {
-		// test.timeoutAfter(60000);
+	logger.warning('Cleaning address queue');
+	await purgeQueue(config.AWS_SQS_ADDRESS_URL);
 
-		config.AWS_DYNAMO_TABLE = ADDRESS_TABLE;
-		config.AWS_SQS_QUEUE_URL = ADDRESS_QUEUE;
-		config.AWS_SNS_TOPIC = TRANSACTION_TOPIC;
+	logger.warning('Cleaning address database');
+	await purgeDatabase('address', config.AWS_DYNAMO_ADDRESS_TABLE);
+
+	logger.warning('Cleaning transaction queue');
+	await purgeQueue(config.AWS_SQS_TRANSACTION_URL);
+
+	logger.warning('Cleaning transaction database');
+	transactions.forEach(async (transaction) => await deleteItem('uuid', transaction.uuid, config.AWS_DYNAMO_TRANSACTION_TABLE));
+
+	logger.info('Sending request to enable address 0x0000000000000000000000000000000000000001');
+	await sendMessage({ address: '0x0000000000000000000000000000000000000001', enabled: true }, undefined, config.AWS_SNS_ADDRESS_TOPIC);
+
+	test('txFetchService', async (test) => {
+		test.timeoutAfter(60000);
+
 		config.ETHEREUM_URL = `http://${txMockServiceHost}:${txMockServicePort}/ethereum`;
 		config.ETHERSCAN_URL = `http://${txMockServiceHost}:${txMockServicePort}/etherscan`;
-
-		logger.warning('Cleaning address database');
-		await purgeDatabase('address');
-
-		logger.warning('Cleaning address queue');
-		await purgeQueue(ADDRESS_QUEUE);
-
-		logger.warning('Cleaning transaction queue');
-		await purgeQueue(TRANSACTION_QUEUE);
-
-		logger.info('Sending request to enable address 0x0000000000000000000000000000000000000001');
-		await sendMessage({ address: '0x0000000000000000000000000000000000000001', enabled: true }, undefined, ADDRESS_TOPIC);
 
 		const server = await txMockService(startBlockNumber, testData.fixtures, txMockServiceHost, txMockServicePort, () => {
 			txFetchService({
@@ -88,14 +85,11 @@ export default async function main(options: { [key: string]: string }) {
 	});
 
 	test('storeService', (test) => {
-		// test.timeoutAfter(60000);
+		test.timeoutAfter(60000);
 
-		config.AWS_DYNAMO_TABLE = TRANSACTION_TABLE;
-		config.AWS_SQS_QUEUE_URL = TRANSACTION_QUEUE;
-		config.AWS_SNS_TOPIC = STORE_TOPIC;
-
-		logger.warning('Cleaning transaction database');
-		transactions.forEach((transaction) => deleteItem('uuid', transaction.uuid));
+		config.AWS_SNS_TOPIC = config.AWS_SNS_STORE_TOPIC;
+		config.AWS_SQS_URL = config.AWS_SQS_TRANSACTION_URL;
+		config.AWS_DYNAMO_TABLE = config.AWS_DYNAMO_TRANSACTION_TABLE;
 
 		storeService({
 			stopPredicate: () => allDataPassed('storedToDB', transactions),
@@ -107,12 +101,11 @@ export default async function main(options: { [key: string]: string }) {
 	});
 
 	test('queryService', async (test) => {
-		// test.timeoutAfter(60000);
+		test.timeoutAfter(60000);
+		// test.plan(queries.length);
 
 		logger.info('Waiting for transations to propagate to elastic');
 		await sleep(5000);
-
-		config.AWS_ELASTIC_HOST = ELASTIC_HOST;
 
 		const server = queryService(queryServiceHost, queryServicePort, async () => {
 			try {
@@ -183,8 +176,4 @@ function getTransactions(blocks: Block[]): Transaction[] {
 		});
 		return transactions;
 	}, [] as Transaction[], blocks);
-}
-
-async function sleep(timeout: number) {
-	return new Promise(resolve => setTimeout(resolve, timeout));
 }

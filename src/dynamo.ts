@@ -71,9 +71,9 @@ export async function deleteItem(keyName: string, keyValue: string, table?: stri
 	}
 }
 
-export async function scan(keyName?: string, removeKey = false) {
+export async function scan(keyName?: string, removeKey = false, table?: string) {
 	try {
-		const result = await getClient().scan({ TableName: config.AWS_DYNAMO_TABLE }).promise();
+		const result = await getClient().scan({ TableName: table || config.AWS_DYNAMO_TABLE }).promise();
 		if (keyName) {
 			if (result.Items) {
 				return result.Items.reduce((acc, value) => {
@@ -100,11 +100,11 @@ export async function scan(keyName?: string, removeKey = false) {
 	}
 }
 
-export async function purgeDatabase(keyName: string) {
+export async function purgeDatabase(keyName: string, table?: string) {
 	try {
-		const records = await scan() as { [key: string]: any; }[];
+		const records = await scan(undefined, undefined, table) as { [key: string]: any; }[];
 		for (const record of records) {
-			await deleteItem(keyName, record[keyName]);
+			await deleteItem(keyName, record[keyName], table);
 		}
 	} catch (error) {
 		throw new MyError('Dynamo purgeDatabase failed', { error });

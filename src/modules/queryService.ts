@@ -86,7 +86,7 @@ rootValue.getTokenPairRate = async function (input: TickerInputs) {
 				output.rate = first.rate / second.rate;
 			}
 		} catch (error) {
-			logger.error(`getTokenPairRate for pair ${pair} failed`, error);
+			logger.warning(`getTokenPairRate for pair ${pair} failed`, error);
 		} finally {
 			logger.debug('Response for getTokenPairRate', output);
 			return output;
@@ -110,7 +110,7 @@ rootValue.getAddressTransactions = async function (input: AddressInputs, ...args
 			output.sentCount = outTxs.map((bucket) => bucket.bucket_stats.count);
 			output.sentAmount = outTxs.map((bucket) => bucket.bucket_stats.sum || 0);
 		} catch (error) {
-			logger.error(`getAddressTransactions for address ${address} failed`, error);
+			logger.warning(`getAddressTransactions for address ${address} failed`, error);
 			throw new MyError(error.message);
 		} finally {
 			logger.debug('Response for getAddressTransactions', output);

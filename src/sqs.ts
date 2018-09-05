@@ -39,14 +39,14 @@ function getClient() {
 	}
 }
 
-export async function receiveMessage<T>(visibilityTimeout?: number) {
+export async function receiveMessage<T>(visibilityTimeout?: number, queue?: string) {
 	try {
 		let params = {};
 		if (visibilityTimeout != null && typeof visibilityTimeout === 'number') {
 			params['VisibilityTimeout'] = visibilityTimeout;
 		}
 
-		const messages = await getClient().receiveMessage({ ...params, QueueUrl: config.AWS_SQS_QUEUE_URL, MaxNumberOfMessages: 1, WaitTimeSeconds: 0 }).promise();
+		const messages = await getClient().receiveMessage({ ...params, QueueUrl: queue || config.AWS_SQS_URL, MaxNumberOfMessages: 1, WaitTimeSeconds: 0 }).promise();
 
 		if (messages.Messages && messages.Messages.length > 0) {
 			/* loop is used to satisfy TypeScript checker */
@@ -92,7 +92,7 @@ export async function receiveMessage<T>(visibilityTimeout?: number) {
 export async function deleteMessage(handle: string) {
 	try {
 		await getClient().deleteMessage({
-			QueueUrl: config.AWS_SQS_QUEUE_URL,
+			QueueUrl: config.AWS_SQS_URL,
 			ReceiptHandle: handle
 		}).promise();
 	} catch (error) {
@@ -103,7 +103,7 @@ export async function deleteMessage(handle: string) {
 export async function purgeQueue(queue?: string) {
 	try {
 		await getClient().purgeQueue({
-			QueueUrl: queue || config.AWS_SQS_QUEUE_URL,
+			QueueUrl: queue || config.AWS_SQS_URL,
 		}).promise();
 	} catch (error) {
 		throw new MyError('SQS purgeQueue failed', { error });

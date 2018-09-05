@@ -1,5 +1,9 @@
 import moment from 'moment';
 
+export async function sleep(timeout: number) {
+	return new Promise(resolve => setTimeout(resolve, timeout));
+}
+
 export function humanizeDuration(time: number) {
 	const duration = moment.duration(time);
 	if (duration.years()) {

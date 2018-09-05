@@ -14,18 +14,7 @@ require.extensions['.gql'] = (module, filename) => {
 	module.exports = fs.readFileSync(filename, 'utf8');
 };
 
-/* Error handling */
-
-const unhandledRejections = new Map();
-
-process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
-	unhandledRejections.set(promise, reason);
-});
-
-process.on('rejectionHandled', (promise: Promise<any>) => {
-	unhandledRejections.delete(promise);
-});
-
+/* Keyboard interrupt Ctrl-C */
 process.on('SIGINT', (/* signal: Signals */) => {
 	readline.clearLine(process.stdout, 0);
 	readline.cursorTo(process.stdout, 0);
@@ -39,7 +28,20 @@ process.on('SIGINT', (/* signal: Signals */) => {
 	}
 });
 
-process.on('uncaughtException', (error: Error) => {
+/* Error handling */
+const unhandledRejections = new Map<Promise<any>, Error>();
+
+process.on('unhandledRejection', (reason, promise) => {
+	logger.warning(`unhandledRejection`, reason);
+	unhandledRejections.set(promise, reason);
+});
+
+process.on('rejectionHandled', (promise) => {
+	logger.warning('rejectionHandled', unhandledRejections.get(promise));
+	unhandledRejections.delete(promise);
+});
+
+process.on('uncaughtException', (error) => {
 	logger.error('Fatal Error', error);
 	process.exit(1);
 });

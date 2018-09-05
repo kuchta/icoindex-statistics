@@ -10,6 +10,7 @@ import { TestData, TickerFixture, Ticker, CCXTTickers, Exchange, TickerOutputs }
 
 import config from '../config';
 import logger from '../logger';
+import { sleep } from '../utils';
 import { purgeQueue } from '../sqs';
 import { tickerFetchService } from './tickerFetchService';
 import { storeService } from './storeService';
@@ -18,24 +19,24 @@ import { queryService } from './queryService';
 export const description = 'Ticker Test Pipeline';
 export const options: Option[] = [
 	{ option: '--query-service-host <host>', description: 'bind queryService to this host', defaultValue: config.QUERYSERVICE_HOST },
-	{ option: '--query-service-port <port>', description: 'bind queryService to this port', defaultValue: String(config.QUERYSERVICE_PORT) },
-	{ option: '-f, --filename <file>', description: 'Load test data from file <file>', defaultValue: './testData/tickers.json' },
+	{ option: '--query-service-port <port>', description: 'bind queryService to this port', defaultValue: '9000' },
+	{ option: '-f, --filename <file>', description: 'Load test data from file <file>' },
 ];
 
 const EXCHANGE_ID = 'test';
 const EXCHANGE_INTERVAL = 1000;
-const TICKER_TABLE = 'icoindexstaging.cointradinghistory';
-const TICKER_QUEUE = 'https://sqs.eu-west-1.amazonaws.com/234333348657/icoindex-staging-queue-coin-trading';
-const TICKER_TOPIC = 'arn:aws:sns:eu-west-1:234333348657:icoindex-staging-event-add-coin-trading-item';
-const STORE_TOPIC = 'arn:aws:sns:eu-west-1:234333348657:icoindex-staging-event-stats-store';
-const ELASTIC_HOST = 'search-icoindex-staging-gywi2nq266suyvyjfux67mhf44.eu-west-1.es.amazonaws.com';
 const MAX_DATETIME_PROXIMITY = '24 hours';
 
 export default async function main(options: { [key: string]: string }) {
 	const queryServiceHost = options.queryServiceHost;
 	const queryServicePort = parseInt(options.queryServicePort);
 
-	const testData: TestData = require(path.resolve(process.cwd(), options.filename));
+	let testData: TestData;
+	if (options.filename) {
+		testData = require(path.resolve(process.cwd(), options.filename));
+	} else {
+		testData = require(path.resolve(path.dirname(path.dirname(__dirname)), path.join('testData', 'tickers.json')));
+	}
 
 	const tickers = testData.fixtures.map((data) => ({ ...data, exchange: EXCHANGE_ID }));
 
@@ -44,14 +45,13 @@ export default async function main(options: { [key: string]: string }) {
 		result: { ...data.result, exchange: EXCHANGE_ID }
 	}));
 
+	logger.warning('Purging ticker queue');
+	await purgeQueue(config.AWS_SQS_TICKER_URL);
+
 	test('tickerFetchService', async (test) => {
 		test.timeoutAfter(60000);
 
 		config.EXCHANGE_INTERVAL = EXCHANGE_INTERVAL;
-		config.AWS_SNS_TOPIC = TICKER_TOPIC;
-
-		logger.info1('Purging ticker queue');
-		await purgeQueue(TICKER_QUEUE);
 
 		tickerFetchService({
 			exchange: createExchange(tickers),
@@ -66,9 +66,9 @@ export default async function main(options: { [key: string]: string }) {
 	test('storeService', (test) => {
 		test.timeoutAfter(60000);
 
-		config.AWS_DYNAMO_TABLE = TICKER_TABLE;
-		config.AWS_SQS_QUEUE_URL = TICKER_QUEUE;
-		config.AWS_SNS_TOPIC = STORE_TOPIC;
+		config.AWS_SNS_TOPIC = config.AWS_SNS_STORE_TOPIC;
+		config.AWS_SQS_URL = config.AWS_SQS_TICKER_URL;
+		config.AWS_DYNAMO_TABLE = config.AWS_DYNAMO_TICKER_TABLE;
 
 		storeService({
 			stopPredicate: () => allDataPassed('storedToDB', tickers),
@@ -79,10 +79,12 @@ export default async function main(options: { [key: string]: string }) {
 		});
 	});
 
-	test('queryService', (test) => {
+	test('queryService', async (test) => {
 		test.plan(queries.length);
 
-		config.AWS_ELASTIC_HOST = ELASTIC_HOST;
+		logger.info('Waiting for tickers to propagate to elastic');
+		await sleep(5000);
+
 		config.MAX_DATETIME_PROXIMITY = MAX_DATETIME_PROXIMITY;
 
 		const server = queryService(queryServiceHost, queryServicePort, async () => {
