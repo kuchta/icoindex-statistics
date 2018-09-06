@@ -50,10 +50,6 @@ export async function txFetchService({ makeCompletedUncompleted = false, purgeDa
 	stopPred = stopPredicate;
 	txSav = txSaved;
 
-	config.AWS_SNS_TOPIC = config.AWS_SNS_TRANSACTION_TOPIC;
-	config.AWS_SQS_URL = config.AWS_SQS_ADDRESS_URL;
-	config.AWS_DYNAMO_TABLE = config.AWS_DYNAMO_ADDRESS_TABLE;
-
 	if (purgeDatabase) {
 		await purgeD('address');
 		logger.warning('Address database purged');

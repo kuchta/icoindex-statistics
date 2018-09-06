@@ -51,6 +51,7 @@ export default async function main(options: { [key: string]: string }) {
 	test('tickerFetchService', async (test) => {
 		test.timeoutAfter(60000);
 
+		config.AWS_SNS_TOPIC = config.AWS_SNS_TICKER_TOPIC;
 		config.EXCHANGE_INTERVAL = EXCHANGE_INTERVAL;
 
 		tickerFetchService({

@@ -45,8 +45,6 @@ export function tickerFetchService({ exchange = new coinmarketcap({  timeout: co
 		map((ticker) => ({ exchange: exchange.id, pair: ticker.symbol, datetime: ticker.datetime, rate: ticker.close } as Ticker))
 	);
 
-	config.AWS_SNS_TOPIC = config.AWS_SNS_TICKER_TOPIC;
-
 	observable.subscribe(
 		nextHandler ? (ticker) => nextHandler(ticker) : async (ticker) => {
 			try {

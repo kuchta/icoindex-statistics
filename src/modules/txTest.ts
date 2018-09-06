@@ -69,6 +69,9 @@ export default async function main(options: { [key: string]: string }) {
 	test('txFetchService', async (test) => {
 		test.timeoutAfter(60000);
 
+		config.AWS_SNS_TOPIC = config.AWS_SNS_TRANSACTION_TOPIC;
+		config.AWS_SQS_URL = config.AWS_SQS_ADDRESS_URL;
+		config.AWS_DYNAMO_TABLE = config.AWS_DYNAMO_ADDRESS_TABLE;
 		config.ETHEREUM_URL = `http://${txMockServiceHost}:${txMockServicePort}/ethereum`;
 		config.ETHERSCAN_URL = `http://${txMockServiceHost}:${txMockServicePort}/etherscan`;
 
