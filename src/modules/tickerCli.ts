@@ -13,7 +13,7 @@ export const options: Option[] = [
 	{ option: '-I, --insert-ticker <pair datetime last>', description: 'Send ticker to SNS' },
 	{ option: '-R, --remove-ticker <id>', description: 'Remove ticker from Dynamo' },
 	{ option: '-S, --search-tickers [pair datetime [exchange]]', description: 'Search tickers in Elastic' },
-	{ option: '-P, --purge-queue', description: 'Purge queue' },
+	{ option: '-P, --purge-queue', description: 'Purge ticker queue' },
 	{ option: '-C, --create-index', description: 'Create elastic index' },
 	{ option: '-D, --delete-index', description: 'Delete elastic index' },
 ];

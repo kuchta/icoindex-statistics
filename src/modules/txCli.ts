@@ -11,15 +11,15 @@ import { createIndex, deleteIndex, searchTransactions } from '../elastic';
 
 export const description = 'Transaction Management Utility';
 export const options: Option[] = [
-	{ option: '--list-addresses', description: 'List addresses in Dynamo' },
+	{ option: '--list-addresses', description: 'List addresses in database' },
 	{ option: '--list-address-queue', description: 'List addresses in queue' },
 	{ option: '--enable-address <address>', description: 'Enable address' },
 	{ option: '--disable-address <address>', description: 'Disable address' },
-	{ option: '--delete-address <address>', description: 'Delete address from Dynamo' },
+	{ option: '--delete-address <address>', description: 'Delete address from database' },
 	{ option: '--purge-addresses', description: 'Purge address database' },
+	{ option: '-P, --purge-queue', description: 'Purge address queue' },
 	{ option: '--set-last-block <number>', description: 'Set last block' },
 	{ option: '-S, --search-transactions <address startDatetime endDatetime received|sent', description: 'Search transactions in Elastic' },
-	{ option: '-P, --purge-queue', description: 'Purge queue' },
 	{ option: '-C, --create-index', description: 'Create elastic index' },
 	{ option: '-D, --delete-index', description: 'Delete elastic index' },
 ];

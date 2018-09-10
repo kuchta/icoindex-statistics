@@ -9,6 +9,8 @@ The main components are:
 1. [Transaction Fetch Service](#transaction-fetch-service)
 1. [Ticker CLI](#ticker-cli)
 1. [Transaction CLI](#transaction-cli)
+1. [Ticker Test](#ticker-test)
+1. [Transaction Test](#transaction-test)
 
 All services could by started by running script `node bin/index.js`.
 The script provides builtin help which can be accessed by --help [-h] parameter.
@@ -126,13 +128,13 @@ $ node bin/index.js queryService -h
 
    Time range in which the service are able to find matching tickers.
 
-1. AWS_ELASTIC_HOST
-1. AWS_ELASTIC_TICKER_INDEX
-1. AWS_ELASTIC_TICKER_TYPE
-1. AWS_ELASTIC_TRANSACTION_INDEX
-1. AWS_ELASTIC_TRANSACTION_TYPE
-1. QUERYSERVICE_HOST
-1. QUERYSERVICE_PORT
+2. AWS_ELASTIC_HOST
+3. AWS_ELASTIC_TICKER_INDEX
+4. AWS_ELASTIC_TICKER_TYPE
+5. AWS_ELASTIC_TRANSACTION_INDEX
+6. AWS_ELASTIC_TRANSACTION_TYPE
+7. QUERYSERVICE_HOST
+8. QUERYSERVICE_PORT
 
 After start the service will be accessible at `http://<host>:<port>/graphql`
 
@@ -229,6 +231,7 @@ query MyQuery($tickers: [TickerInput]) {
 ### Transactions
 
 #### Query
+
 ```
 query MyQuery($addresses: [AddressInput]) {
     getAddressTransactions(addresses: $addresses) {
@@ -240,7 +243,9 @@ query MyQuery($addresses: [AddressInput]) {
   }
 }
 ```
+
 #### Variables
+
 ```
 {
   "addresses": [
@@ -253,9 +258,11 @@ query MyQuery($addresses: [AddressInput]) {
   ]
 }
 ```
+
 For possible value for granularity key see: https://www.elastic.co/guide/en/elasticsearch/reference/2.3/search-aggregations-bucket-datehistogram-aggregation.html
 
 #### Result
+
 ```
 {
   "data": {
@@ -306,6 +313,7 @@ For possible value for granularity key see: https://www.elastic.co/guide/en/elas
 
 
 # Store Service
+
 *Retrieves documents from Amazon SQS service and stores it to Dynamo table (from there it's automaticly saved to Elastic database).*
 
 ## CLI
@@ -328,11 +336,11 @@ $ node bin/index.js storeService -h
 
 1. AWS_SNS_TOPIC
 
-   Amazon SNS Topic for sending store events.
+   Amazon SNS topic for sending store events.
 
 1. AWS_SQS_URL
 
-   Amazon SQS Queue for retrieving documents.
+   Amazon SQS queue for retrieving documents.
 
 1. AWS_DYNAMO_TABLE
 
@@ -366,7 +374,7 @@ $ node bin/index.js tickerFetchService -h
 
 1. AWS_SNS_TOPIC
 
-   SNS topic for storing tickers
+   SNS topic for sending tickers to queue.
 
 1. EXCHANGE_INTERVAL
 
@@ -374,7 +382,7 @@ $ node bin/index.js tickerFetchService -h
 
 1. EXCHANGE_TIMEOUT
 
-   Timeout of exchange requests
+   Timeout of exchange requests.
 
 
 # Transaction Fetch Service
@@ -402,23 +410,23 @@ $ node bin/index.js txFetchService -h
 
 1. AWS_SNS_TOPIC
 
-   SNS topic for storing transactions
+   SNS topic for sending transactions to queue.
 
 1. AWS_SQS_URL
 
-   Url of a queue of incomming requests for address manipulation (enabling, disabling)
+   Url of a queue of incomming requests for address manipulation (enabling, disabling).
 
 1. AWS_DYNAMO_TABLE
 
-   Dynamo table for address management
+   Dynamo table for address management.
 
 1. ETHEREUM_HOST
 
-   Host of ethereum node (currently we use infura)
+   Host of ethereum node (currently we use infura).
 
 1. ETHERSCAN_TOKEN
 
-   Token for fetchning transaction history of an address
+   Token for fetchning transaction history of an address.
 
 1. MAX_NUMBER_OF_HISTORY_CALLS_PER_CYCLE
 
@@ -477,3 +485,103 @@ $ node bin/index.js txCli -h
     -D, --delete-index                                                          Delete elastic index
     -h, --help                                                                  output usage information
 ```
+
+# Ticker Test
+
+*Test ticker pipeline.*
+
+## CLI
+
+```
+$ node bin/index.js tickerTest -h
+
+  Usage: tickerTest [options]
+
+  Ticker Test Pipeline
+
+  Options:
+
+    --query-service-host <host>  bind queryService to this host (default: localhost)
+    --query-service-port <port>  bind queryService to this port (default: 9000)
+    -f, --filename <file>        Load test data from file <file>
+    -h, --help                   output usage information
+```
+
+## Configuration
+
+1. AWS_SNS_STORE_TOPIC
+
+   Amazon SNS topic for sending store events.
+
+1. AWS_SNS_TICKER_TOPIC
+
+   SNS topic for sending tickers to queue.
+
+1. AWS_SQS_TICKER_URL
+
+   Amazon SQS queue for retrieving tickers.
+
+1. AWS_DYNAMO_TICKER_TABLE
+
+   Amazon Dynamo table for storing tickers.
+
+1. AWS_ELASTIC_HOST
+1. AWS_ELASTIC_TICKER_INDEX
+1. AWS_ELASTIC_TICKER_TYPE
+
+
+# Transaction Test
+
+*Test transaction pipeline.*
+
+## CLI
+
+```
+$ node bin/index.js txTest -h
+
+  Usage: txTest [options]
+
+  Transaction Test Pipeline
+
+  Options:
+
+    --tx-mock-service-host <host>      Bind txMockService to this host (default: localhost)
+    --tx-mock-service-port <port>      Bind txMockService to this port (default: 9000)
+    --query-service-host <host>        Bind queryService to this host (default: localhost)
+    --query-service-port <port>        Bind queryService to this port (default: 9001)
+    -f, --filename <file>              Load test data from file <file>
+    -n, --start-block-number <number>  Start with this number as the current block
+    -h, --help                         output usage information
+```
+
+## Configuration
+
+1. AWS_SNS_STORE_TOPIC
+
+   Amazon SNS topic for sending store events.
+
+1. AWS_SNS_ADDRESS_TOPIC
+
+1. AWS_SNS_TRANSACTION_TOPIC
+
+   SNS topic for sending transactions to queue
+
+1. AWS_SQS_ADDRESS_URL
+   
+   Amazon SQS queue for incomming requests for address manipulation (enabling, disabling).
+
+1. AWS_SQS_TRANSACTION_URL
+
+   Amazon SQS queue for retrieving transactions.
+
+1. IS_AWS_DYNAMO_ADDRESS_TABLE
+   
+   Amazon Dynamo table for address management.
+   
+1. AWS_DYNAMO_TRANSACTION_TABLE
+
+   Amazon Dynamo table for storing transactions.
+
+1. AWS_ELASTIC_HOST
+1. AWS_ELASTIC_TRANSACTION_INDEX
+1. AWS_ELASTIC_TRANSACTION_TYPE
