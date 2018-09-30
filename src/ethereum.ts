@@ -1,5 +1,6 @@
 // import Web3 from 'web3';
-// import Eth from 'ethjs';
+// import ethers from 'ethers';
+import { BigNumber } from 'bignumber.js';
 import { RequestManager, providers, utils } from 'eth-connect';
 
 import config from './config';
@@ -16,7 +17,7 @@ function getClient(): RequestManager {
 		logger.debug(`Creating Ethereum client...`);
 
 		// client = new Web3(new Web3.providers.HttpProvider(config.ETHEREUM_URL));
-		// client = new Eth(new Eth.HttpProvider(config.ETHEREUM_URL));
+		// client = new ethers.providers.JsonRpcProvider(config.ETHEREUM_URL);
 		client = new RequestManager(new providers.HTTPProvider(config.ETHEREUM_URL));
 
 		return client;
@@ -32,14 +33,6 @@ export function getBlock(blockNumber: number, returnTransactionObjects = false) 
 	// return getClient().eth.getBlock(blockNumber, returnTransactionObjects);
 	return getClient().eth_getBlockByNumber(blockNumber, returnTransactionObjects);
 }
-
-// export function getBlocks(blockNumbers: number[], returnTransactionObjects = false) {
-// 	const batch = new (getClient().BatchRequest)();
-// 	for (const blockNumber in blockNumbers) {
-// 		batch.add(Web3.eth.getBlock.request(blockNumber, returnTransactionObjects));
-// 	}
-// 	return batch.execute();
-// }
 
 export function isAddress(address: string) {
 	// return getClient().utils.isAddress(address);

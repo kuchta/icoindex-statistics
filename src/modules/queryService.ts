@@ -1,5 +1,5 @@
 import { AddressInfo } from 'net';
-// import { Server } from 'http';
+import { Server } from 'http';
 import express from 'express';
 import graphqlHTTP from 'express-graphql';
 import { buildSchema } from 'graphql';
@@ -86,7 +86,8 @@ rootValue.getTokenPairRate = async function (input: TickerInputs) {
 				output.rate = first.rate / second.rate;
 			}
 		} catch (error) {
-			logger.warning(`getTokenPairRate for pair ${pair} failed`, error);
+			// logger.warning(`getTokenPairRate for pair ${pair} failed`, error);
+			throw new MyError(error.message);
 		} finally {
 			logger.debug('Response for getTokenPairRate', output);
 			return output;

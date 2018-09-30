@@ -1,7 +1,6 @@
 import * as readline from 'readline';
 
 import R from 'ramda';
-import moment from 'moment';
 // import { TransactionObject } from 'eth-connect/dist/Schema';
 
 import { MyError } from '../errors';

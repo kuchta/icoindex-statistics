@@ -18,7 +18,7 @@
 		// "noEmitOnError": true,
 		"noErrorTruncation": true,
 		"noImplicitAny": true,
-		"noImplicitReturns": true,
+		"noImplicitReturns": false,
 		"noImplicitThis": true,
 		"noLib": false,
 		// "noUnusedLocals": true,
