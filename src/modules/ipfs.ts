@@ -39,21 +39,24 @@ import logger from '../logger';
 
 export const description = 'IPFS test client';
 export const options: Option[] = [
-	{ option: '-H, --host <host>', description: 'IPFS node hostname', defaultValue: 'localhost' },
+	{ option: '-H, --host <host>', description: 'IPFS node hostname', defaultValue: 'ipfs.infura.io' },
 	{ option: '-P, --port <port>', description: 'IPFS node port', defaultValue: '5001' },
 ];
 
+const FORMAT = 'dag-cbor';
+const HASH = 'sha2-256';
+const CRYPTO_HASH = 'sha256';
+
 export default async function main(options: { [key: string]: string }) {
-	const ipfs = IPFS({ protocol: 'http', host: options.host, port: Number(options.port) });
+	const ipfs = IPFS({ protocol: 'https', host: options.host, port: Number(options.port) });
 
 	const author = {
 		image: 'https://s.gravatar.com/avatar/81a6c3e435fb2ecd53f4946366232ea3?s=80',
 		name: 'Mila Kuchta'
 	};
 
-	const authorCID = await ipfs.dag.put(author, { format: 'dag-cbor', hashAlg: 'sha2-256' });
-
-	logger.info(`authorCID: ${authorCID}`);
+	const authorCID = await calculateCID(author);
+	// logger.info(`authorCID: ${authorCID}`);
 
 	const reviewSection = {
 		title: 'Title',
@@ -61,9 +64,8 @@ export default async function main(options: { [key: string]: string }) {
 		score: 6
 	};
 
-	const reviewSectionCID = await ipfs.dag.put(reviewSection, { format: 'dag-cbor', hashAlg: 'sha2-256' });
-
-	logger.info(`reviewSectionCID: ${reviewSectionCID}`);
+	const reviewSectionCID = await calculateCID(reviewSection);
+	// logger.info(`reviewSectionCID: ${reviewSectionCID}`);
 
 	const review1 = {
 		id: 'review1',
@@ -71,13 +73,12 @@ export default async function main(options: { [key: string]: string }) {
 		score: 7,
 		createdAt: new Date(),
 		updatedAt: new Date(),
-		author: authorCID,
-		general: reviewSectionCID
+		author: { '/': authorCID.toBaseEncodedString() },
+		general: { '/': reviewSectionCID.toBaseEncodedString() }
 	};
 
-	const review1CID = await ipfs.dag.put(review1, { format: 'dag-cbor', hashAlg: 'sha2-256' });
-
-	logger.info(`review1CID: ${review1CID}`);
+	const review1CID = await calculateCID(review1);
+	// logger.info(`review1CID: ${review1CID}`);
 
 	const review2 = {
 		_id: 'review2',
@@ -85,58 +86,62 @@ export default async function main(options: { [key: string]: string }) {
 		score: 7,
 		createdAt: new Date(),
 		updatedAt: new Date(),
-		author: authorCID,
-		general: reviewSectionCID
+		author: { '/': authorCID.toBaseEncodedString() },
+		general: { '/': reviewSectionCID.toBaseEncodedString() }
 	};
 
-	const review2CID = await ipfs.dag.put(review2, { format: 'dag-cbor', hashAlg: 'sha2-256' });
-
-	logger.info(`review2CID: ${review2CID}`);
+	const review2CID = await calculateCID(review2);
+	// logger.info(`review2CID: ${review2CID}`);
 
 	const reviews = {
 		date: new Date().toDateString(),
 		reviews: [
-			review1CID,
-			review2CID
+			{ '/': review1CID.toBaseEncodedString() },
+			{ '/': review2CID.toBaseEncodedString() }
 		]
 	};
 
-	// Calculate object CID without storing in IPFS
-	const reviewsCID1 = await calculateCID(reviews);
+	// Take this CID and save it to blockchain
 
-	logger.info(`reviewsCID1: ${reviewsCID1}`);
+	const reviewsCID = await calculateCID(reviews);
+	logger.info(`reviewsCID: ${reviewsCID}`);
 
-	const reviewsCID2 = await ipfs.dag.put(reviews, { format: 'dag-cbor', hashAlg: 'sha2-256' });
+	// Later when you are ready to store reviews into IPFS
 
-	logger.info(`reviewsCID2: ${reviewsCID2}`);
+	const authorCID2 = await ipfs.dag.put(author, { format: FORMAT, hashAlg: HASH });
+	// logger.info(`author saved as ${authorCID2}`);
 
-	logger.info(`Reviews CIDs ${reviewsCID1.equals(reviewsCID2) ? 'are' : 'are NOT'} same`);
+	const reviewSectionCID2 = await ipfs.dag.put(reviewSection, { format: FORMAT, hashAlg: HASH });
+	// logger.info(`reviewSection saved as ${reviewSectionCID2}`);
 
-	// Pin object in IPFS
+	const review1CID2 = await ipfs.dag.put(review1, { format: FORMAT, hashAlg: HASH });
+	// logger.info(`review1 saved as ${review1CID2}`);
 
-	const pinned = await ipfs.pin.add(reviewsCID2);
-	logger.info('Reviews CID pinned', pinned);
+	const review2CID2 = await ipfs.dag.put(review2, { format: FORMAT, hashAlg: HASH });
+	// logger.info(`review2 saved as ${review2CID2}`);
 
-	// const buffer = await dagPB.DAGNode.create(Buffer.from('I am inside a Protobuf'));
+	const reviewsCID2 = await ipfs.dag.put(reviews, { format: FORMAT, hashAlg: HASH });
+	logger.info(`reviews saved as ${reviewsCID2}`);
 
-	// DAGNode.create('some data', (err, node2) => {
-	// 	// node2 will have the same data as node1.
-	// });
+	logger.info(`reviewsCIDs ${reviewsCID.equals(reviewsCID2) ? 'are' : 'are NOT'} equal`);
 
-	// const cid0 = dagPB.util.cid(buffer);
-	// logger.info(`cid0: ${cid0}`);
+	// Objects will be garbage collected if nobody is using them after cca 14 days
+	// Pin them to make sure they won't disapear
+
+	// const pinned = await ipfs.pin.add(reviewsCID2);
+	// logger.info('Reviews CID pinned', pinned);
 }
 
-async function calculateCID(object: any): Promise<any> {
+async function calculateCID(object: any, format = FORMAT, hashAlg = HASH, cryptoHash = CRYPTO_HASH): Promise<any> {
 	return new Promise((resolve, reject) => {
 		dagCBOR.util.serialize(object, (error: Error, buffer: Buffer) => {
 			if (error) {
 				reject(error);
 			}
 
-			const hash = crypto.createHash('sha256').update(buffer).digest();
-			const encoded = multihashes.encode(hash, 'sha2-256');
-			const cid = new CID(1, 'dag-cbor', encoded);
+			const hash = crypto.createHash(cryptoHash).update(buffer).digest();
+			const encoded = multihashes.encode(hash, hashAlg);
+			const cid = new CID(1, format, encoded);
 			resolve(cid);
 		});
 	});
