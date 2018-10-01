@@ -26,11 +26,11 @@ export const options: Option[] = [
 
 const EXCHANGE_ID = 'coinmarketcap';
 
-type START = 0;
-type DATA = 1;
-type END = 2;
+const START = 0;
+const DATA = 1;
+const END = 2;
 
-type Callbag = (type: START | DATA | END, payload?: any) => void;
+type Callbag = (type: 0 | 1 | 2, payload?: any) => void;
 type CoinDateRate = { coin?: string, date: string, rate: number };
 
 export default async function main(options: { [key: string]: string }) {
@@ -52,28 +52,28 @@ export default async function main(options: { [key: string]: string }) {
 function loadFromFile(file: string) {
 	return async (type: number, callbag: (type: number, payload?: any) => void) => {
 		if (type !== START) {
-			logger.error(`loadFromFile: This source callbag only supports type #0 but was called with #${type}`);
+			logger.error(`loadFromFile: This source callbag only supports START (#0) type but was called with #${type}`);
 			return;
 		}
 
 		const input = fs.createReadStream(file);
 		const lineReader = readline.createInterface({ input });
 
-		callbag(0, (type: number) => {
-			if (type !== 2) {
-				logger.error(`loadFromFile: This source callbag only supports type #2 but was called with #${type}`);
+		callbag(START, (type: number) => {
+			if (type !== END) {
+				logger.error(`loadFromFile: This source callbag only supports END (#2) type but was called with #${type}`);
 				return;
 			}
 			lineReader.close();
 		});
 
 		lineReader.on('close', () => {
-			callbag(2);
+			callbag(END);
 		});
 
 		lineReader.on('line', (line: string) => {
 			const data = line.split(' ');
-			callbag(1, { coin: data[0], date: data[1], rate: Number(data[2]) });
+			callbag(DATA, { coin: data[0], date: data[1], rate: Number(data[2]) });
 		});
 	};
 }
@@ -82,14 +82,14 @@ function loadFromWeb(url: string) {
 	return async (type: number, callbag: (type: number, payload?: any) => void) => {
 		let stop = false;
 
-		if (type !== 0) {
-			logger.error(`loadFromWeb: This source callbag only supports type #0 but was called with #${type}`);
+		if (type !== START) {
+			logger.error(`loadFromWeb: This source callbag only supports START (#0) type  but was called with #${type}`);
 			return;
 		}
 
-		callbag(0, (type: number) => {
-			if (type !== 2) {
-				logger.error(`loadFromWeb: This source callbag only supports type #2 but was called with #${type}`);
+		callbag(START, (type: number) => {
+			if (type !== END) {
+				logger.error(`loadFromWeb: This source callbag only supports END (#2) type but was called with #${type}`);
 				return;
 			}
 			stop = true;
@@ -105,7 +105,7 @@ function loadFromWeb(url: string) {
 			const coin = await page.evaluate(getCoin);
 
 			if (!coin) {
-				callbag(2, new MyError('Coin symbol was not found on page'));
+				callbag(END, new MyError('Coin symbol was not found on page'));
 				return;
 			}
 
@@ -116,12 +116,12 @@ function loadFromWeb(url: string) {
 					break;
 				}
 
-				callbag(1, { coin, date: moment(new Date(ticker.date)).format('YYYYMMDD'), rate: ticker.rate });
+				callbag(DATA, { coin, date: moment(new Date(ticker.date)).format('YYYYMMDD'), rate: ticker.rate });
 			}
 
-			callbag(2);
+			callbag(END);
 		} catch (error) {
-			callbag(2, error);
+			callbag(END, error);
 		} finally {
 			if (browser) {
 				browser.close();
@@ -174,10 +174,10 @@ function getTickers() {
 
 function storeToQueue(source: Callbag) {
 	let callbag: Callbag;
-	source(0, async (type: number, payload?: any) => {
-		if (type === 0) {
+	source(START, async (type: number, payload?: any) => {
+		if (type === START) {
 			callbag = payload;
-		} else if (type === 1) {
+		} else if (type === DATA) {
 			try {
 				const ticker: Ticker = {
 					uuid: v4(),
@@ -190,9 +190,9 @@ function storeToQueue(source: Callbag) {
 				logger.info1('storeToQueue: Sucessfully sent to SNS', ticker);
 			} catch (error) {
 				logger.error('storeToQueue: Error', error);
-				callbag(2);
+				callbag(END);
 			}
-		} else if (type === 2) {
+		} else if (type === END) {
 			if (payload) {
 				logger.error('storeToQueue: Error acknowledged', payload);
 			}
@@ -204,10 +204,10 @@ function storeToFile(file: string) {
 	let stream: fs.WriteStream;
 	return (source: Callbag) => {
 		let callbag: Callbag;
-		source(0, (type: number, payload?: any) => {
-			if (type === 0) {
+		source(START, (type: number, payload?: any) => {
+			if (type === START) {
 				callbag = payload;
-			} else if (type === 1) {
+			} else if (type === DATA) {
 				if (payload) {
 					if (!stream) {
 						logger.debug('storeToFile: Opening write stream');
@@ -229,7 +229,7 @@ function storeToFile(file: string) {
 				} else {
 					logger.warning('storeToFile: No payload');
 				}
-			} else if (type === 2) {
+			} else if (type === END) {
 				if (payload) {
 					logger.error('storeToFile: Error acknowledged', payload);
 				}
