@@ -46,7 +46,7 @@ export default async function main(options: { [key: string]: string }) {
 	}
 
 	let counter = 0;
-	pipe(loadCallbag, storeCallbag, forEach((x: any) => logger.info(`${counter++}. written:`, x)));
+	pipe(loadCallbag, storeCallbag);
 }
 
 function loadFromFile(file: string) {
