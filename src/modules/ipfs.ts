@@ -24,13 +24,14 @@
  * http://explore.ipld.io
  */
 
+import path from 'path';
 import crypto from 'crypto';
 
 import IPFS from 'ipfs-api';
 import multihashes from 'multihashes';
 import CID from 'cids';
 import dagCBOR from 'ipld-dag-cbor';
-import dagPB from 'ipld-dag-pb';
+import pullFile from 'pull-file';
 
 import { Option } from '../interfaces';
 import { MyError } from '../errors';
@@ -67,6 +68,11 @@ export default async function main(options: { [key: string]: string }) {
 	const reviewSectionCID = await calculateCID(reviewSection);
 	// logger.info(`reviewSectionCID: ${reviewSectionCID}`);
 
+	// Add file
+	const filePath = path.resolve(path.dirname(path.dirname(__dirname)), 'BTC.txt');
+
+	const [ fileRes ] = await ipfs.files.add(pullFile(filePath), { onlyHash: true });
+
 	const review1 = {
 		id: 'review1',
 		description: 'Review 1',
@@ -74,7 +80,8 @@ export default async function main(options: { [key: string]: string }) {
 		createdAt: new Date(),
 		updatedAt: new Date(),
 		author: { '/': authorCID.toBaseEncodedString() },
-		general: { '/': reviewSectionCID.toBaseEncodedString() }
+		general: { '/': reviewSectionCID.toBaseEncodedString() },
+		file: { '/': fileRes.hash }
 	};
 
 	const review1CID = await calculateCID(review1);
@@ -114,6 +121,9 @@ export default async function main(options: { [key: string]: string }) {
 	const reviewSectionCID2 = await ipfs.dag.put(reviewSection, { format: FORMAT, hashAlg: HASH });
 	// logger.info(`reviewSection saved as ${reviewSectionCID2}`);
 
+	const fileCID2 = await ipfs.files.add(pullFile(filePath));
+	// logger.info(`fileCID saved as ${fileCID2}`);
+
 	const review1CID2 = await ipfs.dag.put(review1, { format: FORMAT, hashAlg: HASH });
 	// logger.info(`review1 saved as ${review1CID2}`);
 
@@ -128,8 +138,8 @@ export default async function main(options: { [key: string]: string }) {
 	// Objects will be garbage collected if nobody is using them after cca 14 days
 	// Pin them to make sure they won't disapear
 
-	// const pinned = await ipfs.pin.add(reviewsCID2);
-	// logger.info('Reviews CID pinned', pinned);
+	const pinned = await ipfs.pin.add(reviewsCID2.toBaseEncodedString());
+	logger.info('Reviews CID pinned', pinned);
 }
 
 async function calculateCID(object: any, format = FORMAT, hashAlg = HASH, cryptoHash = CRYPTO_HASH): Promise<any> {

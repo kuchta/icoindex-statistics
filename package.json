@@ -37,6 +37,7 @@
 		"ipld-dag-cbor": "^0.12.1",
 		"moment": "^2.22.2",
 		"multihashes": "^0.4.14",
+		"pull-file": "^1.1.0",
 		"puppeteer": "^1.8.0",
 		"ramda": "^0.25.0",
 		"request-promise-native": "^1.0.5",
