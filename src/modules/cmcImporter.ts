@@ -5,7 +5,7 @@ import moment from 'moment';
 import { v4 } from 'uuid';
 // import { Observable } from 'rxjs';
 // import { takeWhile } from 'rxjs/operators';
-import { pipe, forEach } from 'callbag-basics';
+import { pipe } from 'callbag-basics';
 import puppeteer from 'puppeteer';
 
 import { Option } from '../interfaces';

@@ -260,7 +260,9 @@ declare module '*/testData/transactions.json' {
 	export default content;
 }
 
-// declare module 'tokenbucket' {
-// 	const content: any;
-// 	export default content;
-// }
+declare module 'callbag-basics'
+declare module 'ipfs-api'
+declare module 'multihashes'
+declare module 'cids'
+declare module 'ipld-dag-cbor'
+declare module 'pull-file'
